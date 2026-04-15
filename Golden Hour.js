@@ -8,7 +8,7 @@
 //  Widget parameter:  city name  (e.g. "Chicago")
 //  No parameter:      uses your GPS location
 //  Tap widget:        opens full visual
-//  Supports:          small + medium widget sizes
+//  Supports:          small (170x170) + medium (364x170)
 // ─────────────────────────────────────────────────────────
 
 const FALLBACK_CITY = "Chicago";
@@ -20,7 +20,6 @@ async function geocodeCity(city) {
   const cacheDir = fm.documentsDirectory();
   const cachePath = fm.joinPath(cacheDir, CACHE_KEY + ".json");
 
-  // Check cache
   if (fm.fileExists(cachePath)) {
     await fm.downloadFileFromiCloud(cachePath);
     try {
@@ -31,7 +30,6 @@ async function geocodeCity(city) {
     } catch (e) {}
   }
 
-  // Nominatim geocode (free, no API key)
   const encoded = encodeURIComponent(city);
   const url =
     "https://nominatim.openstreetmap.org/search?q=" +
@@ -50,7 +48,6 @@ async function geocodeCity(city) {
     lon: parseFloat(res[0].lon),
   };
 
-  // Cache result
   fm.writeString(cachePath, JSON.stringify(result));
   return result;
 }
@@ -72,13 +69,11 @@ async function getGPSLocation() {
 async function getLocation() {
   const param = (args.widgetParameter || "").trim();
 
-  // Widget with param --> geocode that city
   if (param.length > 0) {
     const result = await geocodeCity(param);
     if (result) return result;
   }
 
-  // In-app --> prompt for city
   if (!config.runsInWidget) {
     const alert = new Alert();
     alert.title = "Golden Hour";
@@ -98,7 +93,6 @@ async function getLocation() {
     return await getGPSLocation();
   }
 
-  // Widget with no param --> GPS
   return await getGPSLocation();
 }
 
@@ -141,7 +135,6 @@ function cloudLabel(pct) {
   return { text: "Overcast", color: "#8a6060", tier: "overcast" };
 }
 
-// Short label for small widget
 function cloudShort(pct) {
   if (pct == null) return { text: "--", color: "#8a7b72" };
   if (pct <= 20) return { text: "Clear", color: "#7fb87a" };
@@ -205,6 +198,15 @@ function fmtTime(m) {
   return h + ":" + String(mn).padStart(2, "0") + " " + ap;
 }
 
+// Short time format for small widget (no space before AM/PM)
+function fmtShort(m) {
+  let h = Math.floor(m / 60);
+  const mn = m % 60;
+  const ap = h >= 12 ? "p" : "a";
+  h = h % 12 || 12;
+  return h + ":" + String(mn).padStart(2, "0") + ap;
+}
+
 function getTimes(lat, lon) {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
@@ -236,9 +238,9 @@ function getTimes(lat, lon) {
   };
 }
 
-// ── Next Event Helper ───────────────────────────────────
-function getNextEvent(t, nowMin) {
-  const allEvents = [
+// ── Event Helpers ───────────────────────────────────────
+function getAllEvents(t) {
+  return [
     {
       label: "AM Blue",
       full: "Morning Blue Hour",
@@ -272,8 +274,11 @@ function getNextEvent(t, nowMin) {
       color: "#4a6fa5",
     },
   ];
+}
 
-  // Check if currently in one
+function getNextEvent(t, nowMin) {
+  const allEvents = getAllEvents(t);
+
   for (const e of allEvents) {
     if (nowMin >= e.start && nowMin <= e.end) {
       const remain = e.end - nowMin;
@@ -281,7 +286,6 @@ function getNextEvent(t, nowMin) {
     }
   }
 
-  // Find next upcoming
   for (const e of allEvents) {
     if (nowMin < e.start) {
       const diff = e.start - nowMin;
@@ -292,7 +296,23 @@ function getNextEvent(t, nowMin) {
     }
   }
 
-  return null; // done for today
+  return null;
+}
+
+// Returns all events not yet finished (active or upcoming)
+function getRemainingEvents(t, nowMin) {
+  const allEvents = getAllEvents(t);
+  const remaining = [];
+
+  for (const e of allEvents) {
+    if (nowMin >= e.start && nowMin <= e.end) {
+      remaining.push({ ...e, active: true });
+    } else if (nowMin < e.start) {
+      remaining.push({ ...e, active: false });
+    }
+  }
+
+  return remaining;
 }
 
 // ── Draw Timeline Bar ───────────────────────────────────
@@ -309,14 +329,12 @@ function drawTimeline(t, nowMin, width, height) {
     return ((m - DS) / DR) * width;
   }
 
-  // Track background
   const bg = new Path();
   bg.addRoundedRect(new Rect(0, 0, width, height), 4, 4);
   dc.addPath(bg);
   dc.setFillColor(new Color("#1e1520"));
   dc.fillPath();
 
-  // Segments
   const segs = [
     { s: t.blue_am.start, e: t.blue_am.end, c: "#4a6fa5" },
     { s: t.golden_am.start, e: t.golden_am.end, c: "#f0c27f" },
@@ -334,7 +352,6 @@ function drawTimeline(t, nowMin, width, height) {
     dc.fillPath();
   }
 
-  // NOW marker
   const np = x(nowMin);
   if (np >= 0 && np <= width) {
     const marker = new Path();
@@ -343,7 +360,6 @@ function drawTimeline(t, nowMin, width, height) {
     dc.setFillColor(new Color("#ffffff"));
     dc.fillPath();
 
-    // Glow
     const glow = new Path();
     glow.addRoundedRect(new Rect(np - 3, 0, 7, height), 2, 2);
     dc.addPath(glow);
@@ -351,29 +367,20 @@ function drawTimeline(t, nowMin, width, height) {
     dc.fillPath();
   }
 
-  // Time labels
-  dc.setFont(Font.lightMonospacedSystemFont(7));
-  dc.setTextColor(new Color("#6a5b52"));
-  const labels = [
-    { m: 360, t: "6a" },
-    { m: 720, t: "12p" },
-    { m: 1080, t: "6p" },
-  ];
-  for (const l of labels) {
-    const lx = x(l.m);
-    dc.drawTextInRect(l.t, new Rect(lx - 8, height + 1, 20, 10));
-  }
-
   return dc.getImage();
 }
 
-// ── Widget Row Helper ───────────────────────────────────
-function addTimeRow(stack, icon, label, startMin, endMin, color, active) {
+// ─────────────────────────────────────────────────────────
+//  MEDIUM WIDGET  (364 x 170 pt)
+// ─────────────────────────────────────────────────────────
+
+// Compact time row for medium widget
+function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
   const row = stack.addStack();
   row.layoutHorizontally();
   row.centerAlignContent();
-  row.setPadding(5, 8, 5, 8);
-  row.cornerRadius = 6;
+  row.setPadding(3, 6, 3, 6);
+  row.cornerRadius = 5;
 
   if (active) {
     row.backgroundColor = new Color(color, 0.15);
@@ -383,201 +390,32 @@ function addTimeRow(stack, icon, label, startMin, endMin, color, active) {
     row.backgroundColor = new Color("#1e1520", 0.6);
   }
 
-  // Icon
   const ico = row.addText(icon);
-  ico.font = Font.boldMonospacedSystemFont(12);
+  ico.font = Font.boldMonospacedSystemFont(9);
   ico.textColor = new Color(color);
-  row.addSpacer(6);
+  row.addSpacer(4);
 
-  // Label + times
   const info = row.addStack();
   info.layoutVertically();
 
   const lbl = info.addText(label);
-  lbl.font = Font.mediumMonospacedSystemFont(10);
+  lbl.font = Font.mediumMonospacedSystemFont(8);
   lbl.textColor = new Color(color);
   lbl.lineLimit = 1;
 
-  const times = info.addText(fmtTime(startMin) + " - " + fmtTime(endMin));
-  times.font = Font.lightMonospacedSystemFont(9);
+  const times = info.addText(fmtShort(startMin) + " - " + fmtShort(endMin));
+  times.font = Font.lightMonospacedSystemFont(7);
   times.textColor = new Color("#8a7b72");
   times.lineLimit = 1;
 
   row.addSpacer();
 
-  // Duration
   const dur = endMin - startMin;
   const durText = row.addText(dur + "m");
-  durText.font = Font.mediumMonospacedSystemFont(9);
+  durText.font = Font.mediumMonospacedSystemFont(7);
   durText.textColor = new Color(color, 0.7);
 }
 
-// ── Cloud Badge Helper ──────────────────────────────────
-function addCloudBadge(stack, cloudPct) {
-  const cl = cloudLabel(cloudPct);
-
-  const row = stack.addStack();
-  row.layoutHorizontally();
-  row.addSpacer();
-
-  const pill = row.addStack();
-  pill.setPadding(3, 10, 3, 10);
-  pill.cornerRadius = 4;
-  pill.backgroundColor = new Color(cl.color, 0.1);
-  pill.borderColor = new Color(cl.color, 0.25);
-  pill.borderWidth = 1;
-
-  const icon = pill.addText("//");
-  icon.font = Font.lightMonospacedSystemFont(8);
-  icon.textColor = new Color(cl.color, 0.6);
-  pill.addSpacer(4);
-
-  const txt = pill.addText(cl.text);
-  txt.font = Font.mediumMonospacedSystemFont(8);
-  txt.textColor = new Color(cl.color);
-
-  if (cloudPct != null) {
-    pill.addSpacer(4);
-    const pctTxt = pill.addText(cloudPct + "%");
-    pctTxt.font = Font.lightMonospacedSystemFont(8);
-    pctTxt.textColor = new Color(cl.color, 0.6);
-  }
-
-  row.addSpacer();
-}
-
-// ── Small Widget ────────────────────────────────────────
-async function createSmallWidget(loc, hourly) {
-  const t = getTimes(loc.lat, loc.lon);
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-
-  const w = new ListWidget();
-  w.backgroundColor = new Color("#1a1218");
-  w.setPadding(12, 14, 12, 14);
-
-  // ── City Header ──
-  const locText = w.addText(loc.display);
-  locText.font = Font.boldMonospacedSystemFont(10);
-  locText.textColor = new Color("#f0c27f");
-  locText.centerAlignText();
-
-  w.addSpacer(6);
-
-  if (!t) {
-    const err = w.addText("No data");
-    err.font = Font.lightMonospacedSystemFont(10);
-    err.textColor = new Color("#8a7b72");
-    return w;
-  }
-
-  const nxt = getNextEvent(t, nowMin);
-
-  if (!nxt) {
-    // Done for today
-    w.addSpacer();
-    const done = w.addText("Done for today");
-    done.font = Font.lightMonospacedSystemFont(10);
-    done.textColor = new Color("#8a7b72");
-    done.centerAlignText();
-    w.addSpacer();
-    return w;
-  }
-
-  // ── Status ──
-  if (nxt.active) {
-    const badge = w.addText("* SHOOTING NOW *");
-    badge.font = Font.boldMonospacedSystemFont(9);
-    badge.textColor = new Color("#f0c27f");
-    badge.centerAlignText();
-
-    w.addSpacer(4);
-
-    const remain = w.addText(nxt.remain + "m left");
-    remain.font = Font.lightMonospacedSystemFont(9);
-    remain.textColor = new Color(nxt.color, 0.7);
-    remain.centerAlignText();
-  } else {
-    const countdown = w.addText(">> " + nxt.countdown);
-    countdown.font = Font.mediumMonospacedSystemFont(11);
-    countdown.textColor = new Color("#d4a574");
-    countdown.centerAlignText();
-  }
-
-  w.addSpacer(6);
-
-  // ── Event Card ──
-  const card = w.addStack();
-  card.layoutVertically();
-  card.setPadding(6, 10, 6, 10);
-  card.cornerRadius = 6;
-
-  if (nxt.active) {
-    card.backgroundColor = new Color(nxt.color, 0.15);
-    card.borderColor = new Color(nxt.color, 0.4);
-    card.borderWidth = 1;
-  } else {
-    card.backgroundColor = new Color("#1e1520", 0.6);
-  }
-
-  const topRow = card.addStack();
-  topRow.layoutHorizontally();
-  topRow.centerAlignContent();
-
-  const ico = topRow.addText(nxt.icon);
-  ico.font = Font.boldMonospacedSystemFont(12);
-  ico.textColor = new Color(nxt.color);
-  topRow.addSpacer(6);
-
-  const lbl = topRow.addText(nxt.label);
-  lbl.font = Font.mediumMonospacedSystemFont(11);
-  lbl.textColor = new Color(nxt.color);
-
-  topRow.addSpacer();
-
-  const dur = nxt.end - nxt.start;
-  const durTxt = topRow.addText(dur + "m");
-  durTxt.font = Font.mediumMonospacedSystemFont(9);
-  durTxt.textColor = new Color(nxt.color, 0.7);
-
-  const times = card.addText(fmtTime(nxt.start) + " - " + fmtTime(nxt.end));
-  times.font = Font.lightMonospacedSystemFont(9);
-  times.textColor = new Color("#8a7b72");
-
-  w.addSpacer(4);
-
-  // ── Cloud Cover ──
-  const cloudPct = getCloudAtMin(hourly, nxt.start);
-  const cl = cloudShort(cloudPct);
-
-  const cloudRow = w.addStack();
-  cloudRow.layoutHorizontally();
-  cloudRow.addSpacer();
-
-  const cloudPill = cloudRow.addStack();
-  cloudPill.setPadding(2, 8, 2, 8);
-  cloudPill.cornerRadius = 4;
-  cloudPill.backgroundColor = new Color(cl.color, 0.1);
-
-  const cTxt = cloudPill.addText(cl.text);
-  cTxt.font = Font.mediumMonospacedSystemFont(8);
-  cTxt.textColor = new Color(cl.color);
-
-  if (cloudPct != null) {
-    cloudPill.addSpacer(4);
-    const cPct = cloudPill.addText(cloudPct + "%");
-    cPct.font = Font.lightMonospacedSystemFont(8);
-    cPct.textColor = new Color(cl.color, 0.6);
-  }
-
-  cloudRow.addSpacer();
-
-  w.addSpacer();
-
-  return w;
-}
-
-// ── Medium Widget ───────────────────────────────────────
 async function createWidget(loc, hourly) {
   const t = getTimes(loc.lat, loc.lon);
   const now = new Date();
@@ -585,24 +423,24 @@ async function createWidget(loc, hourly) {
 
   const w = new ListWidget();
   w.backgroundColor = new Color("#1a1218");
-  w.setPadding(12, 14, 12, 14);
+  w.setPadding(8, 10, 8, 10);
 
-  // ── Header ──
+  // ── Header (10pt title + 7pt city) ──
   const title = w.addText("GOLDEN HOUR");
   title.font = Font.boldMonospacedSystemFont(10);
   title.textColor = new Color("#f0c27f");
   title.centerAlignText();
 
   const locText = w.addText(loc.display);
-  locText.font = Font.lightMonospacedSystemFont(8);
+  locText.font = Font.lightMonospacedSystemFont(7);
   locText.textColor = new Color("#8a7b72");
   locText.centerAlignText();
 
-  w.addSpacer(6);
+  w.addSpacer(3);
 
   if (!t) {
     const err = w.addText("No data");
-    err.font = Font.lightMonospacedSystemFont(10);
+    err.font = Font.lightMonospacedSystemFont(9);
     err.textColor = new Color("#8a7b72");
     return w;
   }
@@ -613,72 +451,93 @@ async function createWidget(loc, hourly) {
   const inBluePM = nowMin >= t.blue_pm.start && nowMin <= t.blue_pm.end;
   const shooting = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
 
-  // ── Status Badge + Cloud ──
+  // ── Status + Cloud (merged single row) ──
   const nxt = getNextEvent(t, nowMin);
   const cloudTarget = nxt ? nxt.start : null;
   const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
+  const cl = cloudShort(cloudPct);
 
-  const statusRow = w.addStack();
-  statusRow.layoutHorizontally();
-  statusRow.addSpacer();
-  const badge = statusRow.addStack();
-  badge.setPadding(4, 12, 4, 12);
-  badge.cornerRadius = 5;
+  const comboRow = w.addStack();
+  comboRow.layoutHorizontally();
+  comboRow.centerAlignContent();
+  comboRow.addSpacer();
+
+  // Status badge
+  const badge = comboRow.addStack();
+  badge.setPadding(2, 8, 2, 8);
+  badge.cornerRadius = 4;
 
   if (shooting) {
     badge.backgroundColor = new Color("#f0c27f", 0.12);
     badge.borderColor = new Color("#f0c27f", 0.3);
     badge.borderWidth = 1;
     const bt = badge.addText("* SHOOTING NOW *");
-    bt.font = Font.boldMonospacedSystemFont(9);
+    bt.font = Font.boldMonospacedSystemFont(7);
     bt.textColor = new Color("#f0c27f");
   } else if (nxt) {
     badge.backgroundColor = new Color("#8a7b72", 0.1);
     badge.borderColor = new Color("#8a7b72", 0.2);
     badge.borderWidth = 1;
     const bt = badge.addText(">> " + nxt.label + " in " + nxt.countdown);
-    bt.font = Font.mediumMonospacedSystemFont(9);
+    bt.font = Font.mediumMonospacedSystemFont(7);
     bt.textColor = new Color("#d4a574");
   } else {
     badge.backgroundColor = new Color("#8a7b72", 0.08);
     const bt = badge.addText("Done for today");
-    bt.font = Font.lightMonospacedSystemFont(9);
+    bt.font = Font.lightMonospacedSystemFont(7);
     bt.textColor = new Color("#8a7b72");
   }
-  statusRow.addSpacer();
 
-  w.addSpacer(4);
+  comboRow.addSpacer(6);
 
-  // ── Cloud Badge ──
-  addCloudBadge(w, cloudPct);
+  // Cloud pill (inline)
+  const cloudPill = comboRow.addStack();
+  cloudPill.setPadding(2, 6, 2, 6);
+  cloudPill.cornerRadius = 4;
+  cloudPill.backgroundColor = new Color(cl.color, 0.1);
+  cloudPill.borderColor = new Color(cl.color, 0.2);
+  cloudPill.borderWidth = 1;
 
-  w.addSpacer(4);
+  const cTxt = cloudPill.addText(cl.text);
+  cTxt.font = Font.mediumMonospacedSystemFont(7);
+  cTxt.textColor = new Color(cl.color);
 
-  // ── Timeline Bar ──
-  const tlImg = drawTimeline(t, nowMin, 600, 24);
+  if (cloudPct != null) {
+    cloudPill.addSpacer(3);
+    const cPct = cloudPill.addText(cloudPct + "%");
+    cPct.font = Font.lightMonospacedSystemFont(7);
+    cPct.textColor = new Color(cl.color, 0.6);
+  }
+
+  comboRow.addSpacer();
+
+  w.addSpacer(3);
+
+  // ── Timeline Bar (compact: 336pt wide, 10pt tall) ──
+  const tlImg = drawTimeline(t, nowMin, 672, 20);
   const tlRow = w.addStack();
   tlRow.addSpacer();
   const imgWidget = tlRow.addImage(tlImg);
-  imgWidget.imageSize = new Size(300, 16);
+  imgWidget.imageSize = new Size(336, 10);
   tlRow.addSpacer();
 
-  w.addSpacer(8);
+  w.addSpacer(3);
 
   // ── AM / PM Columns ──
   const body = w.addStack();
   body.layoutHorizontally();
-  body.spacing = 8;
+  body.spacing = 6;
 
   // AM column
   const amCol = body.addStack();
   amCol.layoutVertically();
-  amCol.spacing = 4;
+  amCol.spacing = 2;
 
-  const amHead = amCol.addText("  MORNING");
-  amHead.font = Font.lightMonospacedSystemFont(7);
+  const amHead = amCol.addText(" MORNING");
+  amHead.font = Font.lightMonospacedSystemFont(6);
   amHead.textColor = new Color("#8a7b72");
 
-  addTimeRow(
+  addTimeRowMed(
     amCol,
     "*",
     "Golden",
@@ -687,7 +546,7 @@ async function createWidget(loc, hourly) {
     "#f0c27f",
     inGoldenAM,
   );
-  addTimeRow(
+  addTimeRowMed(
     amCol,
     "~",
     "Blue",
@@ -700,13 +559,13 @@ async function createWidget(loc, hourly) {
   // PM column
   const pmCol = body.addStack();
   pmCol.layoutVertically();
-  pmCol.spacing = 4;
+  pmCol.spacing = 2;
 
-  const pmHead = pmCol.addText("  EVENING");
-  pmHead.font = Font.lightMonospacedSystemFont(7);
+  const pmHead = pmCol.addText(" EVENING");
+  pmHead.font = Font.lightMonospacedSystemFont(6);
   pmHead.textColor = new Color("#8a7b72");
 
-  addTimeRow(
+  addTimeRowMed(
     pmCol,
     "*",
     "Golden",
@@ -715,7 +574,7 @@ async function createWidget(loc, hourly) {
     "#e8a87c",
     inGoldenPM,
   );
-  addTimeRow(
+  addTimeRowMed(
     pmCol,
     "~",
     "Blue",
@@ -724,6 +583,134 @@ async function createWidget(loc, hourly) {
     "#4a6fa5",
     inBluePM,
   );
+
+  return w;
+}
+
+// ─────────────────────────────────────────────────────────
+//  SMALL WIDGET  (170 x 170 pt)
+// ─────────────────────────────────────────────────────────
+
+function addCompactRow(stack, ev) {
+  const row = stack.addStack();
+  row.layoutHorizontally();
+  row.centerAlignContent();
+  row.setPadding(3, 6, 3, 6);
+  row.cornerRadius = 5;
+
+  if (ev.active) {
+    row.backgroundColor = new Color(ev.color, 0.15);
+    row.borderColor = new Color(ev.color, 0.4);
+    row.borderWidth = 1;
+  } else {
+    row.backgroundColor = new Color("#1e1520", 0.5);
+  }
+
+  const ico = row.addText(ev.icon);
+  ico.font = Font.boldMonospacedSystemFont(8);
+  ico.textColor = new Color(ev.color);
+  row.addSpacer(4);
+
+  const info = row.addStack();
+  info.layoutVertically();
+
+  const lbl = info.addText(ev.label);
+  lbl.font = Font.mediumMonospacedSystemFont(8);
+  lbl.textColor = new Color(ev.color);
+  lbl.lineLimit = 1;
+
+  const times = info.addText(fmtShort(ev.start) + " - " + fmtShort(ev.end));
+  times.font = Font.lightMonospacedSystemFont(7);
+  times.textColor = new Color("#8a7b72");
+  times.lineLimit = 1;
+
+  row.addSpacer();
+
+  const dur = ev.end - ev.start;
+  const durText = row.addText(dur + "m");
+  durText.font = Font.mediumMonospacedSystemFont(7);
+  durText.textColor = new Color(ev.color, 0.7);
+}
+
+async function createSmallWidget(loc, hourly) {
+  const t = getTimes(loc.lat, loc.lon);
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const w = new ListWidget();
+  w.backgroundColor = new Color("#1a1218");
+  w.setPadding(10, 10, 10, 10);
+
+  // ── City Header ──
+  const locText = w.addText(loc.display);
+  locText.font = Font.boldMonospacedSystemFont(11);
+  locText.textColor = new Color("#f0c27f");
+  locText.centerAlignText();
+
+  w.addSpacer(3);
+
+  if (!t) {
+    w.addSpacer();
+    const err = w.addText("No data");
+    err.font = Font.lightMonospacedSystemFont(9);
+    err.textColor = new Color("#8a7b72");
+    err.centerAlignText();
+    w.addSpacer();
+    return w;
+  }
+
+  // ── Cloud pill (for next event) ──
+  const nxt = getNextEvent(t, nowMin);
+  const cloudTarget = nxt ? nxt.start : null;
+  const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
+  const cl = cloudShort(cloudPct);
+
+  const cloudRow = w.addStack();
+  cloudRow.layoutHorizontally();
+  cloudRow.addSpacer();
+
+  const cloudPill = cloudRow.addStack();
+  cloudPill.setPadding(2, 6, 2, 6);
+  cloudPill.cornerRadius = 4;
+  cloudPill.backgroundColor = new Color(cl.color, 0.1);
+
+  const cTxt = cloudPill.addText(cl.text);
+  cTxt.font = Font.mediumMonospacedSystemFont(7);
+  cTxt.textColor = new Color(cl.color);
+
+  if (cloudPct != null) {
+    cloudPill.addSpacer(3);
+    const cPct = cloudPill.addText(cloudPct + "%");
+    cPct.font = Font.lightMonospacedSystemFont(7);
+    cPct.textColor = new Color(cl.color, 0.6);
+  }
+
+  cloudRow.addSpacer();
+
+  w.addSpacer(4);
+
+  // ── Remaining events for today ──
+  const remaining = getRemainingEvents(t, nowMin);
+
+  if (remaining.length === 0) {
+    w.addSpacer();
+    const done = w.addText("Done for today");
+    done.font = Font.lightMonospacedSystemFont(9);
+    done.textColor = new Color("#8a7b72");
+    done.centerAlignText();
+    w.addSpacer();
+    return w;
+  }
+
+  const evStack = w.addStack();
+  evStack.layoutVertically();
+  evStack.spacing = 2;
+
+  for (const ev of remaining) {
+    addCompactRow(evStack, ev);
+  }
+
+  w.addSpacer();
 
   return w;
 }
@@ -752,7 +739,6 @@ function getFullHTML(loc, hourly) {
   const inBluePM = nowMin >= t.blue_pm.start && nowMin <= t.blue_pm.end;
   const shooting = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
 
-  // Cloud cover for next event
   const nxt = getNextEvent(t, nowMin);
   const cloudTarget = nxt ? nxt.start : null;
   const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
