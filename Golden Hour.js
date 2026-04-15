@@ -379,7 +379,7 @@ function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
   const row = stack.addStack();
   row.layoutHorizontally();
   row.centerAlignContent();
-  row.setPadding(3, 6, 3, 6);
+  row.setPadding(4, 7, 4, 7);
   row.cornerRadius = 5;
 
   if (active) {
@@ -391,20 +391,20 @@ function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
   }
 
   const ico = row.addText(icon);
-  ico.font = Font.boldMonospacedSystemFont(9);
+  ico.font = Font.boldMonospacedSystemFont(10);
   ico.textColor = new Color(color);
-  row.addSpacer(4);
+  row.addSpacer(5);
 
   const info = row.addStack();
   info.layoutVertically();
 
   const lbl = info.addText(label);
-  lbl.font = Font.mediumMonospacedSystemFont(8);
+  lbl.font = Font.mediumMonospacedSystemFont(9);
   lbl.textColor = new Color(color);
   lbl.lineLimit = 1;
 
   const times = info.addText(fmtShort(startMin) + " - " + fmtShort(endMin));
-  times.font = Font.lightMonospacedSystemFont(7);
+  times.font = Font.lightMonospacedSystemFont(8);
   times.textColor = new Color("#8a7b72");
   times.lineLimit = 1;
 
@@ -412,7 +412,7 @@ function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
 
   const dur = endMin - startMin;
   const durText = row.addText(dur + "m");
-  durText.font = Font.mediumMonospacedSystemFont(7);
+  durText.font = Font.mediumMonospacedSystemFont(8);
   durText.textColor = new Color(color, 0.7);
 }
 
@@ -423,11 +423,11 @@ async function createWidget(loc, hourly) {
 
   const w = new ListWidget();
   w.backgroundColor = new Color("#1a1218");
-  w.setPadding(8, 10, 8, 10);
+  w.setPadding(10, 16, 10, 16);
 
-  // ── Header (10pt title + 7pt city) ──
+  // ── Header ──
   const title = w.addText("GOLDEN HOUR");
-  title.font = Font.boldMonospacedSystemFont(10);
+  title.font = Font.boldMonospacedSystemFont(11);
   title.textColor = new Color("#f0c27f");
   title.centerAlignText();
 
@@ -436,12 +436,14 @@ async function createWidget(loc, hourly) {
   locText.textColor = new Color("#8a7b72");
   locText.centerAlignText();
 
-  w.addSpacer(3);
+  w.addSpacer(4);
 
   if (!t) {
+    w.addSpacer();
     const err = w.addText("No data");
     err.font = Font.lightMonospacedSystemFont(9);
     err.textColor = new Color("#8a7b72");
+    w.addSpacer();
     return w;
   }
 
@@ -451,7 +453,7 @@ async function createWidget(loc, hourly) {
   const inBluePM = nowMin >= t.blue_pm.start && nowMin <= t.blue_pm.end;
   const shooting = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
 
-  // ── Status + Cloud (merged single row) ──
+  // ── Status + Cloud (merged row) ──
   const nxt = getNextEvent(t, nowMin);
   const cloudTarget = nxt ? nxt.start : null;
   const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
@@ -462,9 +464,8 @@ async function createWidget(loc, hourly) {
   comboRow.centerAlignContent();
   comboRow.addSpacer();
 
-  // Status badge
   const badge = comboRow.addStack();
-  badge.setPadding(2, 8, 2, 8);
+  badge.setPadding(3, 10, 3, 10);
   badge.cornerRadius = 4;
 
   if (shooting) {
@@ -472,27 +473,26 @@ async function createWidget(loc, hourly) {
     badge.borderColor = new Color("#f0c27f", 0.3);
     badge.borderWidth = 1;
     const bt = badge.addText("* SHOOTING NOW *");
-    bt.font = Font.boldMonospacedSystemFont(7);
+    bt.font = Font.boldMonospacedSystemFont(8);
     bt.textColor = new Color("#f0c27f");
   } else if (nxt) {
     badge.backgroundColor = new Color("#8a7b72", 0.1);
     badge.borderColor = new Color("#8a7b72", 0.2);
     badge.borderWidth = 1;
     const bt = badge.addText(">> " + nxt.label + " in " + nxt.countdown);
-    bt.font = Font.mediumMonospacedSystemFont(7);
+    bt.font = Font.mediumMonospacedSystemFont(8);
     bt.textColor = new Color("#d4a574");
   } else {
     badge.backgroundColor = new Color("#8a7b72", 0.08);
     const bt = badge.addText("Done for today");
-    bt.font = Font.lightMonospacedSystemFont(7);
+    bt.font = Font.lightMonospacedSystemFont(8);
     bt.textColor = new Color("#8a7b72");
   }
 
   comboRow.addSpacer(6);
 
-  // Cloud pill (inline)
   const cloudPill = comboRow.addStack();
-  cloudPill.setPadding(2, 6, 2, 6);
+  cloudPill.setPadding(3, 8, 3, 8);
   cloudPill.cornerRadius = 4;
   cloudPill.backgroundColor = new Color(cl.color, 0.1);
   cloudPill.borderColor = new Color(cl.color, 0.2);
@@ -511,27 +511,26 @@ async function createWidget(loc, hourly) {
 
   comboRow.addSpacer();
 
-  w.addSpacer(3);
+  w.addSpacer(4);
 
-  // ── Timeline Bar (compact: 336pt wide, 10pt tall) ──
-  const tlImg = drawTimeline(t, nowMin, 672, 20);
+  // ── Timeline Bar ──
+  const tlImg = drawTimeline(t, nowMin, 680, 24);
   const tlRow = w.addStack();
   tlRow.addSpacer();
   const imgWidget = tlRow.addImage(tlImg);
-  imgWidget.imageSize = new Size(336, 10);
+  imgWidget.imageSize = new Size(324, 12);
   tlRow.addSpacer();
 
-  w.addSpacer(3);
+  w.addSpacer(4);
 
   // ── AM / PM Columns ──
   const body = w.addStack();
   body.layoutHorizontally();
   body.spacing = 6;
 
-  // AM column
   const amCol = body.addStack();
   amCol.layoutVertically();
-  amCol.spacing = 2;
+  amCol.spacing = 3;
 
   const amHead = amCol.addText(" MORNING");
   amHead.font = Font.lightMonospacedSystemFont(6);
@@ -556,10 +555,9 @@ async function createWidget(loc, hourly) {
     inBlueAM,
   );
 
-  // PM column
   const pmCol = body.addStack();
   pmCol.layoutVertically();
-  pmCol.spacing = 2;
+  pmCol.spacing = 3;
 
   const pmHead = pmCol.addText(" EVENING");
   pmHead.font = Font.lightMonospacedSystemFont(6);
@@ -595,8 +593,8 @@ function addCompactRow(stack, ev) {
   const row = stack.addStack();
   row.layoutHorizontally();
   row.centerAlignContent();
-  row.setPadding(3, 6, 3, 6);
-  row.cornerRadius = 5;
+  row.setPadding(5, 8, 5, 8);
+  row.cornerRadius = 6;
 
   if (ev.active) {
     row.backgroundColor = new Color(ev.color, 0.15);
@@ -607,20 +605,20 @@ function addCompactRow(stack, ev) {
   }
 
   const ico = row.addText(ev.icon);
-  ico.font = Font.boldMonospacedSystemFont(8);
+  ico.font = Font.boldMonospacedSystemFont(10);
   ico.textColor = new Color(ev.color);
-  row.addSpacer(4);
+  row.addSpacer(5);
 
   const info = row.addStack();
   info.layoutVertically();
 
   const lbl = info.addText(ev.label);
-  lbl.font = Font.mediumMonospacedSystemFont(8);
+  lbl.font = Font.mediumMonospacedSystemFont(9);
   lbl.textColor = new Color(ev.color);
   lbl.lineLimit = 1;
 
   const times = info.addText(fmtShort(ev.start) + " - " + fmtShort(ev.end));
-  times.font = Font.lightMonospacedSystemFont(7);
+  times.font = Font.lightMonospacedSystemFont(8);
   times.textColor = new Color("#8a7b72");
   times.lineLimit = 1;
 
@@ -628,7 +626,7 @@ function addCompactRow(stack, ev) {
 
   const dur = ev.end - ev.start;
   const durText = row.addText(dur + "m");
-  durText.font = Font.mediumMonospacedSystemFont(7);
+  durText.font = Font.mediumMonospacedSystemFont(8);
   durText.textColor = new Color(ev.color, 0.7);
 }
 
@@ -639,27 +637,27 @@ async function createSmallWidget(loc, hourly) {
 
   const w = new ListWidget();
   w.backgroundColor = new Color("#1a1218");
-  w.setPadding(10, 10, 10, 10);
+  w.setPadding(12, 10, 12, 10);
 
   // ── City Header ──
   const locText = w.addText(loc.display);
-  locText.font = Font.boldMonospacedSystemFont(11);
+  locText.font = Font.boldMonospacedSystemFont(12);
   locText.textColor = new Color("#f0c27f");
   locText.centerAlignText();
 
-  w.addSpacer(3);
+  w.addSpacer(4);
 
   if (!t) {
     w.addSpacer();
     const err = w.addText("No data");
-    err.font = Font.lightMonospacedSystemFont(9);
+    err.font = Font.lightMonospacedSystemFont(10);
     err.textColor = new Color("#8a7b72");
     err.centerAlignText();
     w.addSpacer();
     return w;
   }
 
-  // ── Cloud pill (for next event) ──
+  // ── Cloud pill ──
   const nxt = getNextEvent(t, nowMin);
   const cloudTarget = nxt ? nxt.start : null;
   const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
@@ -670,32 +668,34 @@ async function createSmallWidget(loc, hourly) {
   cloudRow.addSpacer();
 
   const cloudPill = cloudRow.addStack();
-  cloudPill.setPadding(2, 6, 2, 6);
+  cloudPill.setPadding(3, 8, 3, 8);
   cloudPill.cornerRadius = 4;
   cloudPill.backgroundColor = new Color(cl.color, 0.1);
+  cloudPill.borderColor = new Color(cl.color, 0.2);
+  cloudPill.borderWidth = 1;
 
   const cTxt = cloudPill.addText(cl.text);
-  cTxt.font = Font.mediumMonospacedSystemFont(7);
+  cTxt.font = Font.mediumMonospacedSystemFont(8);
   cTxt.textColor = new Color(cl.color);
 
   if (cloudPct != null) {
-    cloudPill.addSpacer(3);
+    cloudPill.addSpacer(4);
     const cPct = cloudPill.addText(cloudPct + "%");
-    cPct.font = Font.lightMonospacedSystemFont(7);
+    cPct.font = Font.lightMonospacedSystemFont(8);
     cPct.textColor = new Color(cl.color, 0.6);
   }
 
   cloudRow.addSpacer();
 
-  w.addSpacer(4);
+  w.addSpacer(6);
 
-  // ── Remaining events for today ──
+  // ── Remaining events ──
   const remaining = getRemainingEvents(t, nowMin);
 
   if (remaining.length === 0) {
     w.addSpacer();
     const done = w.addText("Done for today");
-    done.font = Font.lightMonospacedSystemFont(9);
+    done.font = Font.lightMonospacedSystemFont(10);
     done.textColor = new Color("#8a7b72");
     done.centerAlignText();
     w.addSpacer();
@@ -704,7 +704,7 @@ async function createSmallWidget(loc, hourly) {
 
   const evStack = w.addStack();
   evStack.layoutVertically();
-  evStack.spacing = 2;
+  evStack.spacing = 4;
 
   for (const ev of remaining) {
     addCompactRow(evStack, ev);
