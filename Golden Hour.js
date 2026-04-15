@@ -8,10 +8,11 @@
 //  Widget parameter:  city name  (e.g. "Chicago")
 //  No parameter:      uses your GPS location
 //  Tap widget:        opens full visual
+//  Supports:          small + medium widget sizes
 // ─────────────────────────────────────────────────────────
 
 const FALLBACK_CITY = "Chicago";
-const CACHE_KEY     = "golden_hour_geo_cache";
+const CACHE_KEY = "golden_hour_geo_cache";
 
 // ── Geocode ─────────────────────────────────────────────
 async function geocodeCity(city) {
@@ -32,8 +33,10 @@ async function geocodeCity(city) {
 
   // Nominatim geocode (free, no API key)
   const encoded = encodeURIComponent(city);
-  const url = "https://nominatim.openstreetmap.org/search?q="
-              + encoded + "&format=json&limit=1";
+  const url =
+    "https://nominatim.openstreetmap.org/search?q=" +
+    encoded +
+    "&format=json&limit=1";
   const req = new Request(url);
   req.headers = { "User-Agent": "Scriptable-GoldenHour/1.0" };
   const res = await req.loadJSON();
@@ -56,9 +59,8 @@ async function getGPSLocation() {
   Location.setAccuracyToKilometer();
   const loc = await Location.current();
   const geo = await Location.reverseGeocode(loc.latitude, loc.longitude);
-  const city = (geo && geo[0])
-    ? (geo[0].city || geo[0].locality || "Here")
-    : "Here";
+  const city =
+    geo && geo[0] ? geo[0].city || geo[0].locality || "Here" : "Here";
   return {
     city: city,
     display: city,
@@ -100,37 +102,87 @@ async function getLocation() {
   return await getGPSLocation();
 }
 
+// ── Cloud Cover ─────────────────────────────────────────
+async function fetchCloudCover(lat, lon) {
+  try {
+    const url =
+      "https://api.open-meteo.com/v1/forecast" +
+      "?latitude=" +
+      lat.toFixed(4) +
+      "&longitude=" +
+      lon.toFixed(4) +
+      "&hourly=cloud_cover" +
+      "&forecast_days=1";
+    const req = new Request(url);
+    req.timeoutInterval = 5;
+    const res = await req.loadJSON();
+    if (res && res.hourly && res.hourly.cloud_cover) {
+      return res.hourly;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function getCloudAtMin(hourly, targetMin) {
+  if (!hourly || !hourly.cloud_cover) return null;
+  const hour = Math.min(Math.floor(targetMin / 60), 23);
+  const val = hourly.cloud_cover[hour];
+  if (val == null) return null;
+  return val;
+}
+
+function cloudLabel(pct) {
+  if (pct == null) return { text: "--", color: "#8a7b72", tier: "unknown" };
+  if (pct <= 20) return { text: "Clear", color: "#7fb87a", tier: "clear" };
+  if (pct <= 50)
+    return { text: "Partly Cloudy", color: "#d4a574", tier: "partly" };
+  if (pct <= 80)
+    return { text: "Mostly Cloudy", color: "#c4784a", tier: "mostly" };
+  return { text: "Overcast", color: "#8a6060", tier: "overcast" };
+}
+
+// Short label for small widget
+function cloudShort(pct) {
+  if (pct == null) return { text: "--", color: "#8a7b72" };
+  if (pct <= 20) return { text: "Clear", color: "#7fb87a" };
+  if (pct <= 50) return { text: "Partial", color: "#d4a574" };
+  if (pct <= 80) return { text: "Cloudy", color: "#c4784a" };
+  return { text: "Overcast", color: "#8a6060" };
+}
+
 // ── Solar Calc ──────────────────────────────────────────
 function calcSunEvent(lat, lon, doy, angleDeg, isRise) {
   const lngHour = lon / 15;
-  const t = isRise
-    ? doy + (6 - lngHour) / 24
-    : doy + (18 - lngHour) / 24;
+  const t = isRise ? doy + (6 - lngHour) / 24 : doy + (18 - lngHour) / 24;
 
-  const M = (0.9856 * t) - 3.289;
-  let L = M + 1.916 * Math.sin(M * Math.PI / 180)
-            + 0.020 * Math.sin(2 * M * Math.PI / 180) + 282.634;
+  const M = 0.9856 * t - 3.289;
+  let L =
+    M +
+    1.916 * Math.sin((M * Math.PI) / 180) +
+    0.02 * Math.sin((2 * M * Math.PI) / 180) +
+    282.634;
   L = ((L % 360) + 360) % 360;
 
-  let RA = Math.atan(0.91764 * Math.tan(L * Math.PI / 180)) * 180 / Math.PI;
+  let RA = (Math.atan(0.91764 * Math.tan((L * Math.PI) / 180)) * 180) / Math.PI;
   RA = ((RA % 360) + 360) % 360;
   RA += Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90;
   RA /= 15;
 
-  const sinDec = 0.39782 * Math.sin(L * Math.PI / 180);
+  const sinDec = 0.39782 * Math.sin((L * Math.PI) / 180);
   const cosDec = Math.cos(Math.asin(sinDec));
-  const latR = lat * Math.PI / 180;
+  const latR = (lat * Math.PI) / 180;
 
-  const cosH = (Math.sin(angleDeg * Math.PI / 180) - Math.sin(latR) * sinDec)
-               / (Math.cos(latR) * cosDec);
+  const cosH =
+    (Math.sin((angleDeg * Math.PI) / 180) - Math.sin(latR) * sinDec) /
+    (Math.cos(latR) * cosDec);
   if (cosH > 1 || cosH < -1) return null;
 
-  let H = Math.acos(cosH) * 180 / Math.PI;
+  let H = (Math.acos(cosH) * 180) / Math.PI;
   if (isRise) H = 360 - H;
   H /= 15;
 
   const T = H + RA - 0.06571 * t - 6.622;
-  return ((T - lngHour) % 24 + 24) % 24;
+  return (((T - lngHour) % 24) + 24) % 24;
 }
 
 function utcToLocal(utcH) {
@@ -141,7 +193,9 @@ function utcToLocal(utcH) {
   return local;
 }
 
-function hToMin(h) { return Math.round(h * 60); }
+function hToMin(h) {
+  return Math.round(h * 60);
+}
 
 function fmtTime(m) {
   let h = Math.floor(m / 60);
@@ -157,29 +211,88 @@ function getTimes(lat, lon) {
   const doy = Math.floor((now - start) / 86400000);
 
   const angles = [
-    { key: "civil",   deg: -6.0 },
+    { key: "civil", deg: -6.0 },
     { key: "goldenL", deg: -4.0 },
-    { key: "sun",     deg: -0.833 },
-    { key: "goldenH", deg:  6.0 },
+    { key: "sun", deg: -0.833 },
+    { key: "goldenH", deg: 6.0 },
   ];
 
   const ev = {};
   for (const a of angles) {
     const rise = calcSunEvent(lat, lon, doy, a.deg, true);
-    const set  = calcSunEvent(lat, lon, doy, a.deg, false);
+    const set = calcSunEvent(lat, lon, doy, a.deg, false);
     if (rise === null || set === null) return null;
     ev[a.key + "_rise"] = hToMin(utcToLocal(rise));
-    ev[a.key + "_set"]  = hToMin(utcToLocal(set));
+    ev[a.key + "_set"] = hToMin(utcToLocal(set));
   }
 
   return {
-    blue_am:   { start: ev.civil_rise,   end: ev.goldenL_rise },
+    blue_am: { start: ev.civil_rise, end: ev.goldenL_rise },
     golden_am: { start: ev.goldenL_rise, end: ev.goldenH_rise },
-    sunrise:   ev.sun_rise,
-    golden_pm: { start: ev.goldenH_set,  end: ev.goldenL_set },
-    sunset:    ev.sun_set,
-    blue_pm:   { start: ev.goldenL_set,  end: ev.civil_set },
+    sunrise: ev.sun_rise,
+    golden_pm: { start: ev.goldenH_set, end: ev.goldenL_set },
+    sunset: ev.sun_set,
+    blue_pm: { start: ev.goldenL_set, end: ev.civil_set },
   };
+}
+
+// ── Next Event Helper ───────────────────────────────────
+function getNextEvent(t, nowMin) {
+  const allEvents = [
+    {
+      label: "AM Blue",
+      full: "Morning Blue Hour",
+      start: t.blue_am.start,
+      end: t.blue_am.end,
+      icon: "~",
+      color: "#4a6fa5",
+    },
+    {
+      label: "AM Gold",
+      full: "Morning Golden Hour",
+      start: t.golden_am.start,
+      end: t.golden_am.end,
+      icon: "*",
+      color: "#f0c27f",
+    },
+    {
+      label: "PM Gold",
+      full: "Evening Golden Hour",
+      start: t.golden_pm.start,
+      end: t.golden_pm.end,
+      icon: "*",
+      color: "#e8a87c",
+    },
+    {
+      label: "PM Blue",
+      full: "Evening Blue Hour",
+      start: t.blue_pm.start,
+      end: t.blue_pm.end,
+      icon: "~",
+      color: "#4a6fa5",
+    },
+  ];
+
+  // Check if currently in one
+  for (const e of allEvents) {
+    if (nowMin >= e.start && nowMin <= e.end) {
+      const remain = e.end - nowMin;
+      return { ...e, active: true, remain: remain, countdown: null };
+    }
+  }
+
+  // Find next upcoming
+  for (const e of allEvents) {
+    if (nowMin < e.start) {
+      const diff = e.start - nowMin;
+      const h = Math.floor(diff / 60);
+      const m = diff % 60;
+      const txt = h > 0 ? h + "h " + m + "m" : m + "m";
+      return { ...e, active: false, remain: null, countdown: txt };
+    }
+  }
+
+  return null; // done for today
 }
 
 // ── Draw Timeline Bar ───────────────────────────────────
@@ -189,8 +302,12 @@ function drawTimeline(t, nowMin, width, height) {
   dc.opaque = false;
   dc.respectScreenScale = true;
 
-  const DS = 300, DE = 1260, DR = DE - DS;
-  function x(m) { return ((m - DS) / DR) * width; }
+  const DS = 300,
+    DE = 1260,
+    DR = DE - DS;
+  function x(m) {
+    return ((m - DS) / DR) * width;
+  }
 
   // Track background
   const bg = new Path();
@@ -201,10 +318,10 @@ function drawTimeline(t, nowMin, width, height) {
 
   // Segments
   const segs = [
-    { s: t.blue_am.start,   e: t.blue_am.end,   c: "#4a6fa5" },
-    { s: t.golden_am.start, e: t.golden_am.end,  c: "#f0c27f" },
-    { s: t.golden_pm.start, e: t.golden_pm.end,  c: "#e8a87c" },
-    { s: t.blue_pm.start,   e: t.blue_pm.end,    c: "#4a6fa5" },
+    { s: t.blue_am.start, e: t.blue_am.end, c: "#4a6fa5" },
+    { s: t.golden_am.start, e: t.golden_am.end, c: "#f0c27f" },
+    { s: t.golden_pm.start, e: t.golden_pm.end, c: "#e8a87c" },
+    { s: t.blue_pm.start, e: t.blue_pm.end, c: "#4a6fa5" },
   ];
 
   for (const seg of segs) {
@@ -238,8 +355,8 @@ function drawTimeline(t, nowMin, width, height) {
   dc.setFont(Font.lightMonospacedSystemFont(7));
   dc.setTextColor(new Color("#6a5b52"));
   const labels = [
-    { m: 360,  t: "6a" },
-    { m: 720,  t: "12p" },
+    { m: 360, t: "6a" },
+    { m: 720, t: "12p" },
     { m: 1080, t: "6p" },
   ];
   for (const l of labels) {
@@ -295,8 +412,173 @@ function addTimeRow(stack, icon, label, startMin, endMin, color, active) {
   durText.textColor = new Color(color, 0.7);
 }
 
-// ── Widget ──────────────────────────────────────────────
-async function createWidget(loc) {
+// ── Cloud Badge Helper ──────────────────────────────────
+function addCloudBadge(stack, cloudPct) {
+  const cl = cloudLabel(cloudPct);
+
+  const row = stack.addStack();
+  row.layoutHorizontally();
+  row.addSpacer();
+
+  const pill = row.addStack();
+  pill.setPadding(3, 10, 3, 10);
+  pill.cornerRadius = 4;
+  pill.backgroundColor = new Color(cl.color, 0.1);
+  pill.borderColor = new Color(cl.color, 0.25);
+  pill.borderWidth = 1;
+
+  const icon = pill.addText("//");
+  icon.font = Font.lightMonospacedSystemFont(8);
+  icon.textColor = new Color(cl.color, 0.6);
+  pill.addSpacer(4);
+
+  const txt = pill.addText(cl.text);
+  txt.font = Font.mediumMonospacedSystemFont(8);
+  txt.textColor = new Color(cl.color);
+
+  if (cloudPct != null) {
+    pill.addSpacer(4);
+    const pctTxt = pill.addText(cloudPct + "%");
+    pctTxt.font = Font.lightMonospacedSystemFont(8);
+    pctTxt.textColor = new Color(cl.color, 0.6);
+  }
+
+  row.addSpacer();
+}
+
+// ── Small Widget ────────────────────────────────────────
+async function createSmallWidget(loc, hourly) {
+  const t = getTimes(loc.lat, loc.lon);
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const w = new ListWidget();
+  w.backgroundColor = new Color("#1a1218");
+  w.setPadding(12, 14, 12, 14);
+
+  // ── City Header ──
+  const locText = w.addText(loc.display);
+  locText.font = Font.boldMonospacedSystemFont(10);
+  locText.textColor = new Color("#f0c27f");
+  locText.centerAlignText();
+
+  w.addSpacer(6);
+
+  if (!t) {
+    const err = w.addText("No data");
+    err.font = Font.lightMonospacedSystemFont(10);
+    err.textColor = new Color("#8a7b72");
+    return w;
+  }
+
+  const nxt = getNextEvent(t, nowMin);
+
+  if (!nxt) {
+    // Done for today
+    w.addSpacer();
+    const done = w.addText("Done for today");
+    done.font = Font.lightMonospacedSystemFont(10);
+    done.textColor = new Color("#8a7b72");
+    done.centerAlignText();
+    w.addSpacer();
+    return w;
+  }
+
+  // ── Status ──
+  if (nxt.active) {
+    const badge = w.addText("* SHOOTING NOW *");
+    badge.font = Font.boldMonospacedSystemFont(9);
+    badge.textColor = new Color("#f0c27f");
+    badge.centerAlignText();
+
+    w.addSpacer(4);
+
+    const remain = w.addText(nxt.remain + "m left");
+    remain.font = Font.lightMonospacedSystemFont(9);
+    remain.textColor = new Color(nxt.color, 0.7);
+    remain.centerAlignText();
+  } else {
+    const countdown = w.addText(">> " + nxt.countdown);
+    countdown.font = Font.mediumMonospacedSystemFont(11);
+    countdown.textColor = new Color("#d4a574");
+    countdown.centerAlignText();
+  }
+
+  w.addSpacer(6);
+
+  // ── Event Card ──
+  const card = w.addStack();
+  card.layoutVertically();
+  card.setPadding(6, 10, 6, 10);
+  card.cornerRadius = 6;
+
+  if (nxt.active) {
+    card.backgroundColor = new Color(nxt.color, 0.15);
+    card.borderColor = new Color(nxt.color, 0.4);
+    card.borderWidth = 1;
+  } else {
+    card.backgroundColor = new Color("#1e1520", 0.6);
+  }
+
+  const topRow = card.addStack();
+  topRow.layoutHorizontally();
+  topRow.centerAlignContent();
+
+  const ico = topRow.addText(nxt.icon);
+  ico.font = Font.boldMonospacedSystemFont(12);
+  ico.textColor = new Color(nxt.color);
+  topRow.addSpacer(6);
+
+  const lbl = topRow.addText(nxt.label);
+  lbl.font = Font.mediumMonospacedSystemFont(11);
+  lbl.textColor = new Color(nxt.color);
+
+  topRow.addSpacer();
+
+  const dur = nxt.end - nxt.start;
+  const durTxt = topRow.addText(dur + "m");
+  durTxt.font = Font.mediumMonospacedSystemFont(9);
+  durTxt.textColor = new Color(nxt.color, 0.7);
+
+  const times = card.addText(fmtTime(nxt.start) + " - " + fmtTime(nxt.end));
+  times.font = Font.lightMonospacedSystemFont(9);
+  times.textColor = new Color("#8a7b72");
+
+  w.addSpacer(4);
+
+  // ── Cloud Cover ──
+  const cloudPct = getCloudAtMin(hourly, nxt.start);
+  const cl = cloudShort(cloudPct);
+
+  const cloudRow = w.addStack();
+  cloudRow.layoutHorizontally();
+  cloudRow.addSpacer();
+
+  const cloudPill = cloudRow.addStack();
+  cloudPill.setPadding(2, 8, 2, 8);
+  cloudPill.cornerRadius = 4;
+  cloudPill.backgroundColor = new Color(cl.color, 0.1);
+
+  const cTxt = cloudPill.addText(cl.text);
+  cTxt.font = Font.mediumMonospacedSystemFont(8);
+  cTxt.textColor = new Color(cl.color);
+
+  if (cloudPct != null) {
+    cloudPill.addSpacer(4);
+    const cPct = cloudPill.addText(cloudPct + "%");
+    cPct.font = Font.lightMonospacedSystemFont(8);
+    cPct.textColor = new Color(cl.color, 0.6);
+  }
+
+  cloudRow.addSpacer();
+
+  w.addSpacer();
+
+  return w;
+}
+
+// ── Medium Widget ───────────────────────────────────────
+async function createWidget(loc, hourly) {
   const t = getTimes(loc.lat, loc.lon);
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -307,7 +589,7 @@ async function createWidget(loc) {
 
   // ── Header ──
   const title = w.addText("GOLDEN HOUR");
-  title.font = Font.boldMonospacedSystemFont(12);
+  title.font = Font.boldMonospacedSystemFont(10);
   title.textColor = new Color("#f0c27f");
   title.centerAlignText();
 
@@ -320,18 +602,22 @@ async function createWidget(loc) {
 
   if (!t) {
     const err = w.addText("No data");
-    err.font = Font.lightMonospacedSystemFont(11);
+    err.font = Font.lightMonospacedSystemFont(10);
     err.textColor = new Color("#8a7b72");
     return w;
   }
 
-  const inBlueAM   = nowMin >= t.blue_am.start   && nowMin <= t.blue_am.end;
-  const inGoldenAM = nowMin >= t.golden_am.start  && nowMin <= t.golden_am.end;
-  const inGoldenPM = nowMin >= t.golden_pm.start  && nowMin <= t.golden_pm.end;
-  const inBluePM   = nowMin >= t.blue_pm.start    && nowMin <= t.blue_pm.end;
-  const shooting   = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
+  const inBlueAM = nowMin >= t.blue_am.start && nowMin <= t.blue_am.end;
+  const inGoldenAM = nowMin >= t.golden_am.start && nowMin <= t.golden_am.end;
+  const inGoldenPM = nowMin >= t.golden_pm.start && nowMin <= t.golden_pm.end;
+  const inBluePM = nowMin >= t.blue_pm.start && nowMin <= t.blue_pm.end;
+  const shooting = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
 
-  // ── Status Badge ──
+  // ── Status Badge + Cloud ──
+  const nxt = getNextEvent(t, nowMin);
+  const cloudTarget = nxt ? nxt.start : null;
+  const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
+
   const statusRow = w.addStack();
   statusRow.layoutHorizontally();
   statusRow.addSpacer();
@@ -346,43 +632,27 @@ async function createWidget(loc) {
     const bt = badge.addText("* SHOOTING NOW *");
     bt.font = Font.boldMonospacedSystemFont(9);
     bt.textColor = new Color("#f0c27f");
+  } else if (nxt) {
+    badge.backgroundColor = new Color("#8a7b72", 0.1);
+    badge.borderColor = new Color("#8a7b72", 0.2);
+    badge.borderWidth = 1;
+    const bt = badge.addText(">> " + nxt.label + " in " + nxt.countdown);
+    bt.font = Font.mediumMonospacedSystemFont(9);
+    bt.textColor = new Color("#d4a574");
   } else {
-    const events = [
-      { min: t.blue_am.start,   label: "AM Blue" },
-      { min: t.golden_am.start, label: "AM Gold" },
-      { min: t.golden_pm.start, label: "PM Gold" },
-      { min: t.blue_pm.start,   label: "PM Blue" },
-    ];
-    let nextLabel = null;
-    let nextTxt = null;
-    for (const e of events) {
-      if (nowMin < e.min) {
-        const diff = e.min - nowMin;
-        const h = Math.floor(diff / 60);
-        const m = diff % 60;
-        nextTxt = h > 0 ? h+"h "+m+"m" : m+"m";
-        nextLabel = e.label;
-        break;
-      }
-    }
-
-    if (nextLabel) {
-      badge.backgroundColor = new Color("#8a7b72", 0.1);
-      badge.borderColor = new Color("#8a7b72", 0.2);
-      badge.borderWidth = 1;
-      const bt = badge.addText(">> " + nextLabel + " in " + nextTxt);
-      bt.font = Font.mediumMonospacedSystemFont(9);
-      bt.textColor = new Color("#d4a574");
-    } else {
-      badge.backgroundColor = new Color("#8a7b72", 0.08);
-      const bt = badge.addText("Done for today");
-      bt.font = Font.lightMonospacedSystemFont(9);
-      bt.textColor = new Color("#8a7b72");
-    }
+    badge.backgroundColor = new Color("#8a7b72", 0.08);
+    const bt = badge.addText("Done for today");
+    bt.font = Font.lightMonospacedSystemFont(9);
+    bt.textColor = new Color("#8a7b72");
   }
   statusRow.addSpacer();
 
-  w.addSpacer(6);
+  w.addSpacer(4);
+
+  // ── Cloud Badge ──
+  addCloudBadge(w, cloudPct);
+
+  w.addSpacer(4);
 
   // ── Timeline Bar ──
   const tlImg = drawTimeline(t, nowMin, 600, 24);
@@ -408,8 +678,24 @@ async function createWidget(loc) {
   amHead.font = Font.lightMonospacedSystemFont(7);
   amHead.textColor = new Color("#8a7b72");
 
-  addTimeRow(amCol, "*", "Golden", t.golden_am.start, t.golden_am.end, "#f0c27f", inGoldenAM);
-  addTimeRow(amCol, "~", "Blue",   t.blue_am.start,   t.blue_am.end,   "#4a6fa5", inBlueAM);
+  addTimeRow(
+    amCol,
+    "*",
+    "Golden",
+    t.golden_am.start,
+    t.golden_am.end,
+    "#f0c27f",
+    inGoldenAM,
+  );
+  addTimeRow(
+    amCol,
+    "~",
+    "Blue",
+    t.blue_am.start,
+    t.blue_am.end,
+    "#4a6fa5",
+    inBlueAM,
+  );
 
   // PM column
   const pmCol = body.addStack();
@@ -420,41 +706,96 @@ async function createWidget(loc) {
   pmHead.font = Font.lightMonospacedSystemFont(7);
   pmHead.textColor = new Color("#8a7b72");
 
-  addTimeRow(pmCol, "*", "Golden", t.golden_pm.start, t.golden_pm.end, "#e8a87c", inGoldenPM);
-  addTimeRow(pmCol, "~", "Blue",   t.blue_pm.start,   t.blue_pm.end,   "#4a6fa5", inBluePM);
+  addTimeRow(
+    pmCol,
+    "*",
+    "Golden",
+    t.golden_pm.start,
+    t.golden_pm.end,
+    "#e8a87c",
+    inGoldenPM,
+  );
+  addTimeRow(
+    pmCol,
+    "~",
+    "Blue",
+    t.blue_pm.start,
+    t.blue_pm.end,
+    "#4a6fa5",
+    inBluePM,
+  );
 
   return w;
 }
 
 // ── Full Visual ─────────────────────────────────────────
-function getFullHTML(loc) {
+function getFullHTML(loc, hourly) {
   const t = getTimes(loc.lat, loc.lon);
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const dateStr = now.toLocaleDateString("en-US", {
-    weekday: "long", month: "long", day: "numeric", year: "numeric"
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   });
 
   const latStr = Math.abs(loc.lat).toFixed(2) + (loc.lat >= 0 ? "N" : "S");
   const lonStr = Math.abs(loc.lon).toFixed(2) + (loc.lon >= 0 ? "E" : "W");
 
-  if (!t) return "<html><body style='background:#1a1218;color:#e8d5c4;font-family:monospace;padding:40px'><p>No sunrise/sunset data</p></body></html>";
+  if (!t)
+    return "<html><body style='background:#1a1218;color:#e8d5c4;font-family:monospace;padding:40px'><p>No sunrise/sunset data</p></body></html>";
 
-  const inBlueAM   = nowMin >= t.blue_am.start   && nowMin <= t.blue_am.end;
-  const inGoldenAM = nowMin >= t.golden_am.start  && nowMin <= t.golden_am.end;
-  const inGoldenPM = nowMin >= t.golden_pm.start  && nowMin <= t.golden_pm.end;
-  const inBluePM   = nowMin >= t.blue_pm.start    && nowMin <= t.blue_pm.end;
-  const shooting   = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
+  const inBlueAM = nowMin >= t.blue_am.start && nowMin <= t.blue_am.end;
+  const inGoldenAM = nowMin >= t.golden_am.start && nowMin <= t.golden_am.end;
+  const inGoldenPM = nowMin >= t.golden_pm.start && nowMin <= t.golden_pm.end;
+  const inBluePM = nowMin >= t.blue_pm.start && nowMin <= t.blue_pm.end;
+  const shooting = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
+
+  // Cloud cover for next event
+  const nxt = getNextEvent(t, nowMin);
+  const cloudTarget = nxt ? nxt.start : null;
+  const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
+  const cl = cloudLabel(cloudPct);
+
+  let cloudHTML = "";
+  if (nxt) {
+    const pctStr = cloudPct != null ? cloudPct + "%" : "";
+    cloudHTML =
+      '<div class="cloud-badge"><div class="cloud-pill" style="border-color:' +
+      cl.color +
+      "40;background:" +
+      cl.color +
+      '18"><span class="cloud-icon" style="color:' +
+      cl.color +
+      '99">//</span><span class="cloud-text" style="color:' +
+      cl.color +
+      '">' +
+      cl.text +
+      "</span>";
+    if (pctStr)
+      cloudHTML +=
+        '<span class="cloud-pct" style="color:' +
+        cl.color +
+        '99">' +
+        pctStr +
+        "</span>";
+    cloudHTML +=
+      '<span class="cloud-note" style="color:#8a7b72">at ' +
+      nxt.label +
+      "</span></div></div>";
+  }
 
   let statusHTML = "";
   if (shooting) {
-    statusHTML = '<div class="status shooting"><div class="st">* * *  SHOOTING NOW  * * *</div></div>';
+    statusHTML =
+      '<div class="status shooting"><div class="st">* * *  SHOOTING NOW  * * *</div></div>';
   } else {
     const events = [
-      { min: t.blue_am.start,   label: "Morning Blue Hour" },
+      { min: t.blue_am.start, label: "Morning Blue Hour" },
       { min: t.golden_am.start, label: "Morning Golden Hour" },
       { min: t.golden_pm.start, label: "Evening Golden Hour" },
-      { min: t.blue_pm.start,   label: "Evening Blue Hour" },
+      { min: t.blue_pm.start, label: "Evening Blue Hour" },
     ];
     let found = false;
     for (const e of events) {
@@ -462,55 +803,160 @@ function getFullHTML(loc) {
         const diff = e.min - nowMin;
         const h = Math.floor(diff / 60);
         const m = diff % 60;
-        const txt = h > 0 ? h+"h "+m+"m" : m+"m";
-        statusHTML = '<div class="status waiting"><div class="sl">NEXT UP</div><div class="st">'+e.label+'  --  '+txt+'</div></div>';
+        const txt = h > 0 ? h + "h " + m + "m" : m + "m";
+        statusHTML =
+          '<div class="status waiting"><div class="sl">NEXT UP</div><div class="st">' +
+          e.label +
+          "  --  " +
+          txt +
+          "</div></div>";
         found = true;
         break;
       }
     }
     if (!found) {
-      statusHTML = '<div class="status done"><div class="st" style="color:#8a7b72">Done for today -- see you tomorrow</div></div>';
+      statusHTML =
+        '<div class="status done"><div class="st" style="color:#8a7b72">Done for today -- see you tomorrow</div></div>';
     }
   }
 
-  const DS = 300, DE = 1260, DR = DE - DS;
-  function pct(m) { return ((m - DS) / DR) * 100; }
+  const DS = 300,
+    DE = 1260,
+    DR = DE - DS;
+  function pct(m) {
+    return ((m - DS) / DR) * 100;
+  }
 
   const segs = [
-    { s: t.blue_am.start,   e: t.blue_am.end,   bg: "linear-gradient(180deg,#4a6fa5,#2d4a7a)", a: inBlueAM },
-    { s: t.golden_am.start, e: t.golden_am.end,  bg: "linear-gradient(180deg,#f0c27f,#d4a054)", a: inGoldenAM },
-    { s: t.golden_am.end,   e: t.golden_pm.start,bg: "rgba(232,213,196,0.06)", a: false },
-    { s: t.golden_pm.start, e: t.golden_pm.end,  bg: "linear-gradient(180deg,#e8a87c,#c4784a)", a: inGoldenPM },
-    { s: t.blue_pm.start,   e: t.blue_pm.end,    bg: "linear-gradient(180deg,#4a6fa5,#2d4a7a)", a: inBluePM },
+    {
+      s: t.blue_am.start,
+      e: t.blue_am.end,
+      bg: "linear-gradient(180deg,#4a6fa5,#2d4a7a)",
+      a: inBlueAM,
+    },
+    {
+      s: t.golden_am.start,
+      e: t.golden_am.end,
+      bg: "linear-gradient(180deg,#f0c27f,#d4a054)",
+      a: inGoldenAM,
+    },
+    {
+      s: t.golden_am.end,
+      e: t.golden_pm.start,
+      bg: "rgba(232,213,196,0.06)",
+      a: false,
+    },
+    {
+      s: t.golden_pm.start,
+      e: t.golden_pm.end,
+      bg: "linear-gradient(180deg,#e8a87c,#c4784a)",
+      a: inGoldenPM,
+    },
+    {
+      s: t.blue_pm.start,
+      e: t.blue_pm.end,
+      bg: "linear-gradient(180deg,#4a6fa5,#2d4a7a)",
+      a: inBluePM,
+    },
   ];
 
   let tlHTML = "";
   for (const s of segs) {
-    tlHTML += '<div style="position:absolute;left:'+pct(s.s)+'%;width:'+(pct(s.e)-pct(s.s))+'%;height:100%;background:'+s.bg+';opacity:'+(s.a?1:0.6)+'"></div>';
+    tlHTML +=
+      '<div style="position:absolute;left:' +
+      pct(s.s) +
+      "%;width:" +
+      (pct(s.e) - pct(s.s)) +
+      "%;height:100%;background:" +
+      s.bg +
+      ";opacity:" +
+      (s.a ? 1 : 0.6) +
+      '"></div>';
   }
   const np = pct(nowMin);
   if (np >= 0 && np <= 100) {
-    tlHTML += '<div style="position:absolute;left:'+np+'%;top:0;height:100%;width:2px;background:#f0f0f0;box-shadow:0 0 8px rgba(240,240,240,0.5);z-index:10"><div style="position:absolute;top:-16px;left:-10px;font-size:8px;color:#f0f0f0;letter-spacing:1px;font-weight:500">NOW</div></div>';
+    tlHTML +=
+      '<div style="position:absolute;left:' +
+      np +
+      '%;top:0;height:100%;width:2px;background:#f0f0f0;box-shadow:0 0 8px rgba(240,240,240,0.5);z-index:10"><div style="position:absolute;top:-16px;left:-10px;font-size:8px;color:#f0f0f0;letter-spacing:1px;font-weight:500">NOW</div></div>';
   }
 
   function rc(label, s, e, icon, color, active) {
     const dur = e - s;
-    const bdr = active ? "border-color:"+color+";background:"+color+"18" : "";
-    return '<div class="card" style="'+bdr+'"><div class="cl"><div class="ci" style="color:'+color+'">'+icon+'</div><div><div class="cn">'+label+'</div><div class="ct">'+fmtTime(s)+'  -->  '+fmtTime(e)+'</div></div></div><div class="cd" style="color:'+color+'">'+dur+' min</div></div>';
+    const bdr = active
+      ? "border-color:" + color + ";background:" + color + "18"
+      : "";
+    return (
+      '<div class="card" style="' +
+      bdr +
+      '"><div class="cl"><div class="ci" style="color:' +
+      color +
+      '">' +
+      icon +
+      '</div><div><div class="cn">' +
+      label +
+      '</div><div class="ct">' +
+      fmtTime(s) +
+      "  -->  " +
+      fmtTime(e) +
+      '</div></div></div><div class="cd" style="color:' +
+      color +
+      '">' +
+      dur +
+      " min</div></div>"
+    );
   }
 
   function pc(label, m, icon, color) {
-    return '<div class="cp"><div class="cl"><div class="ci" style="color:'+color+';opacity:0.6">'+icon+'</div><div class="cn" style="color:#b8a89c">'+label+'</div></div><div style="font-size:12px;color:#b8a89c">'+fmtTime(m)+'</div></div>';
+    return (
+      '<div class="cp"><div class="cl"><div class="ci" style="color:' +
+      color +
+      ';opacity:0.6">' +
+      icon +
+      '</div><div class="cn" style="color:#b8a89c">' +
+      label +
+      '</div></div><div style="font-size:12px;color:#b8a89c">' +
+      fmtTime(m) +
+      "</div></div>"
+    );
   }
 
   let ch = '<div class="sl2">MORNING</div>';
-  ch += rc("Blue Hour",   t.blue_am.start,   t.blue_am.end,   "~", "#4a6fa5", inBlueAM);
-  ch += rc("Golden Hour", t.golden_am.start, t.golden_am.end, "*", "#f0c27f", inGoldenAM);
-  ch += pc("Sunrise",     t.sunrise, "^", "#e8a87c");
+  ch += rc(
+    "Blue Hour",
+    t.blue_am.start,
+    t.blue_am.end,
+    "~",
+    "#4a6fa5",
+    inBlueAM,
+  );
+  ch += rc(
+    "Golden Hour",
+    t.golden_am.start,
+    t.golden_am.end,
+    "*",
+    "#f0c27f",
+    inGoldenAM,
+  );
+  ch += pc("Sunrise", t.sunrise, "^", "#e8a87c");
   ch += '<div class="sl2" style="margin-top:20px">EVENING</div>';
-  ch += rc("Golden Hour", t.golden_pm.start, t.golden_pm.end, "*", "#e8a87c", inGoldenPM);
-  ch += pc("Sunset",      t.sunset, "v", "#c4784a");
-  ch += rc("Blue Hour",   t.blue_pm.start,   t.blue_pm.end,   "~", "#4a6fa5", inBluePM);
+  ch += rc(
+    "Golden Hour",
+    t.golden_pm.start,
+    t.golden_pm.end,
+    "*",
+    "#e8a87c",
+    inGoldenPM,
+  );
+  ch += pc("Sunset", t.sunset, "v", "#c4784a");
+  ch += rc(
+    "Blue Hour",
+    t.blue_pm.start,
+    t.blue_pm.end,
+    "~",
+    "#4a6fa5",
+    inBluePM,
+  );
 
   return `<!DOCTYPE html>
 <html><head>
@@ -523,13 +969,19 @@ body{font-family:-apple-system,'SF Mono',monospace;background:linear-gradient(17
 .co{font-size:10px;letter-spacing:5px;color:#c4784a;text-transform:uppercase;font-weight:300;margin-bottom:8px}
 h1{font-size:26px;font-weight:700;letter-spacing:2px;background:linear-gradient(90deg,#f0c27f,#e8a87c,#d4a054);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
 .dt{font-size:11px;color:#8a7b72;font-weight:300;letter-spacing:1px}
-.status{text-align:center;margin-bottom:32px;padding:14px 18px;border-radius:8px}
+.status{text-align:center;margin-bottom:16px;padding:14px 18px;border-radius:8px}
 .shooting{background:rgba(240,194,127,0.12);border:1px solid rgba(240,194,127,0.3)}
 .waiting{background:rgba(138,123,114,0.1);border:1px solid rgba(138,123,114,0.2)}
 .done{background:rgba(138,123,114,0.08);border:1px solid rgba(138,123,114,0.15)}
 .sl{font-size:10px;color:#8a7b72;letter-spacing:2px;margin-bottom:4px}
 .st{font-size:13px;font-weight:500;color:#d4a574;letter-spacing:1px}
 .shooting .st{color:#f0c27f;letter-spacing:3px}
+.cloud-badge{text-align:center;margin-bottom:32px}
+.cloud-pill{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:1px solid}
+.cloud-icon{font-size:10px;font-weight:300}
+.cloud-text{font-size:11px;font-weight:500;letter-spacing:1px}
+.cloud-pct{font-size:10px;font-weight:300}
+.cloud-note{font-size:9px;font-weight:300;letter-spacing:1px;margin-left:4px}
 .tb{position:relative;height:36px;background:rgba(30,21,32,0.6);border-radius:6px;overflow:hidden;border:1px solid rgba(138,123,114,0.12);margin-bottom:6px}
 .tl{display:flex;justify-content:space-between;font-size:9px;color:#6a5b52;letter-spacing:1px;margin-bottom:40px}
 .sl2{font-size:10px;letter-spacing:3px;color:#8a7b72;margin-bottom:12px;margin-top:8px}
@@ -554,6 +1006,7 @@ h1{font-size:26px;font-weight:700;letter-spacing:2px;background:linear-gradient(
   <div class="dt">${dateStr}</div>
 </div>
 ${statusHTML}
+${cloudHTML}
 <div class="tb">${tlHTML}</div>
 <div class="tl"><span>5 AM</span><span>9 AM</span><span>1 PM</span><span>5 PM</span><span>9 PM</span></div>
 <div class="cards">${ch}</div>
@@ -562,17 +1015,24 @@ ${statusHTML}
   <div class="li"><div class="ld" style="background:#f0c27f"></div>Golden AM</div>
   <div class="li"><div class="ld" style="background:#e8a87c"></div>Golden PM</div>
 </div>
-<div class="ft">Sun angles:  Golden = -4 to 6 deg  |  Blue = -6 to -4 deg</div>
+<div class="ft">Sun angles:  Golden = -4 to 6 deg  |  Blue = -6 to -4 deg<br>Cloud data:  Open-Meteo hourly forecast</div>
 </body></html>`;
 }
 
 // ── Run ─────────────────────────────────────────────────
 const loc = await getLocation();
+const hourly = await fetchCloudCover(loc.lat, loc.lon);
 
 if (config.runsInWidget) {
-  const w = await createWidget(loc);
+  const family = config.widgetFamily;
+  let w;
+  if (family === "small") {
+    w = await createSmallWidget(loc, hourly);
+  } else {
+    w = await createWidget(loc, hourly);
+  }
   Script.setWidget(w);
   Script.complete();
 } else {
-  await WebView.loadHTML(getFullHTML(loc), null, null, true);
+  await WebView.loadHTML(getFullHTML(loc, hourly), null, null, true);
 }
