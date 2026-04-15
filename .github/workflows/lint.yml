@@ -17,7 +17,7 @@ jobs:
           node-version: 20
 
       - name: Install ESLint
-        run: npm install --save-dev eslint
+        run: npm install --save-dev eslint@8
 
       - name: Run ESLint
         run: npx eslint "Golden Hour.js" --no-eslintrc --env es2022 --parser-options=ecmaVersion:2022 --rule '{"no-undef":"off","no-unused-vars":"warn","no-constant-condition":"warn","no-dupe-keys":"error","no-duplicate-case":"error","no-unreachable":"error","semi":"warn","eqeqeq":"warn"}'
