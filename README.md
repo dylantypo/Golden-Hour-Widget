@@ -20,9 +20,7 @@ Built with [Scriptable](https://scriptable.app).
 
 | Widget                              | Full View                     |
 | ----------------------------------- | ----------------------------- |
-| ![widget](screenshots/s-widget.png) |                               |
-|                                     | ![full](screenshots/full.png) |
-| ![widget](screenshots/m-widget.png) |                               |
+| ![widget](screenshots/s-widget.png) ![widget](screenshots/m-widget.png) | ![full](screenshots/full.png) |
 
 ---
 
