@@ -1,5 +1,5 @@
 // Variables used by Scriptable.
-// These must be at the very top of the file.
+// These must be at the very top of the file. Do not edit.
 // icon-color: orange; icon-glyph: sun;
 
 // ─────────────────────────────────────────────────────────
@@ -423,7 +423,7 @@ async function createWidget(loc, hourly) {
 
   const w = new ListWidget();
   w.backgroundColor = new Color("#1a1218");
-  w.setPadding(10, 16, 10, 16);
+  w.setPadding(10, 10, 10, 10);
 
   // ── Header ──
   const title = w.addText("GOLDEN HOUR");
@@ -531,6 +531,7 @@ async function createWidget(loc, hourly) {
   // ── AM / PM Columns ──
   const body = w.addStack();
   body.layoutHorizontally();
+  body.centerAlignContent()
 
   const amCol = body.addStack();
   amCol.layoutVertically();
