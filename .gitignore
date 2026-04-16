@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Claude Code
+.claude/
+.agents/
+.impeccable.md
+CLAUDE.md
+skills-lock.json
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini

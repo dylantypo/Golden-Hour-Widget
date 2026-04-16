@@ -121,12 +121,12 @@ function getCloudAtMin(hourly, targetMin) {
   if (!hourly || !hourly.cloud_cover) return null;
   const hour = Math.min(Math.floor(targetMin / 60), 23);
   const val = hourly.cloud_cover[hour];
-  if (val == null) return null;
+  if (val === null) return null;
   return val;
 }
 
 function cloudLabel(pct) {
-  if (pct == null) return { text: "--", color: "#8a7b72", tier: "unknown" };
+  if (pct === null) return { text: "--", color: "#8a7b72", tier: "unknown" };
   if (pct <= 20) return { text: "Clear", color: "#7fb87a", tier: "clear" };
   if (pct <= 50)
     return { text: "Partly Cloudy", color: "#d4a574", tier: "partly" };
@@ -136,7 +136,7 @@ function cloudLabel(pct) {
 }
 
 function cloudShort(pct) {
-  if (pct == null) return { text: "--", color: "#8a7b72" };
+  if (pct === null) return { text: "--", color: "#8a7b72" };
   if (pct <= 20) return { text: "Clear", color: "#7fb87a" };
   if (pct <= 50) return { text: "Partial", color: "#d4a574" };
   if (pct <= 80) return { text: "Cloudy", color: "#c4784a" };
@@ -462,20 +462,24 @@ async function createWidget(loc, hourly) {
   const comboRow = w.addStack();
   comboRow.layoutHorizontally();
   comboRow.centerAlignContent();
-  comboRow.addSpacer();
+
+  if (!shooting) comboRow.addSpacer();
 
   const badge = comboRow.addStack();
-  badge.setPadding(3, 10, 3, 10);
   badge.cornerRadius = 4;
 
   if (shooting) {
-    badge.backgroundColor = new Color("#f0c27f", 0.12);
-    badge.borderColor = new Color("#f0c27f", 0.3);
-    badge.borderWidth = 1;
+    badge.setPadding(4, 12, 4, 12);
+    badge.backgroundColor = new Color("#f0c27f", 0.28);
+    badge.borderColor = new Color("#f0c27f", 0.95);
+    badge.borderWidth = 2;
+    badge.addSpacer();
     const bt = badge.addText("* SHOOTING NOW *");
-    bt.font = Font.boldMonospacedSystemFont(8);
-    bt.textColor = new Color("#f0c27f");
+    bt.font = Font.boldMonospacedSystemFont(10);
+    bt.textColor = new Color("#fff3d9");
+    badge.addSpacer();
   } else if (nxt) {
+    badge.setPadding(3, 10, 3, 10);
     badge.backgroundColor = new Color("#8a7b72", 0.1);
     badge.borderColor = new Color("#8a7b72", 0.2);
     badge.borderWidth = 1;
@@ -483,6 +487,7 @@ async function createWidget(loc, hourly) {
     bt.font = Font.mediumMonospacedSystemFont(8);
     bt.textColor = new Color("#d4a574");
   } else {
+    badge.setPadding(3, 10, 3, 10);
     badge.backgroundColor = new Color("#8a7b72", 0.08);
     const bt = badge.addText("Done for today");
     bt.font = Font.lightMonospacedSystemFont(8);
@@ -502,19 +507,19 @@ async function createWidget(loc, hourly) {
   cTxt.font = Font.mediumMonospacedSystemFont(7);
   cTxt.textColor = new Color(cl.color);
 
-  if (cloudPct != null) {
+  if (cloudPct !== null) {
     cloudPill.addSpacer(3);
     const cPct = cloudPill.addText(cloudPct + "%");
     cPct.font = Font.lightMonospacedSystemFont(7);
     cPct.textColor = new Color(cl.color, 0.6);
   }
 
-  comboRow.addSpacer();
+  if (!shooting) comboRow.addSpacer();
 
   w.addSpacer(4);
 
   // ── Timeline Bar ──
-  const tlImg = drawTimeline(t, nowMin, 680, 24);
+  const tlImg = drawTimeline(t, nowMin, 1020, 24);
   const tlRow = w.addStack();
   tlRow.addSpacer();
   const imgWidget = tlRow.addImage(tlImg);
@@ -531,19 +536,10 @@ async function createWidget(loc, hourly) {
   amCol.layoutVertically();
   amCol.spacing = 3;
 
-  const amHead = amCol.addText(" MORNING");
+  const amHead = amCol.addText(t.blue_am.start < 720 ? " MORNING" : " DAWN");
   amHead.font = Font.lightMonospacedSystemFont(6);
   amHead.textColor = new Color("#8a7b72");
 
-  addTimeRowMed(
-    amCol,
-    "*",
-    "Golden",
-    t.golden_am.start,
-    t.golden_am.end,
-    "#f0c27f",
-    inGoldenAM,
-  );
   addTimeRowMed(
     amCol,
     "~",
@@ -553,6 +549,15 @@ async function createWidget(loc, hourly) {
     "#4a6fa5",
     inBlueAM,
   );
+  addTimeRowMed(
+    amCol,
+    "*",
+    "Golden",
+    t.golden_am.start,
+    t.golden_am.end,
+    "#f0c27f",
+    inGoldenAM,
+  );
 
   body.addSpacer();
 
@@ -560,7 +565,7 @@ async function createWidget(loc, hourly) {
   pmCol.layoutVertically();
   pmCol.spacing = 3;
 
-  const pmHead = pmCol.addText(" EVENING");
+  const pmHead = pmCol.addText(t.golden_pm.start >= 720 ? " EVENING" : " DUSK");
   pmHead.font = Font.lightMonospacedSystemFont(6);
   pmHead.textColor = new Color("#8a7b72");
 
@@ -658,6 +663,13 @@ async function createSmallWidget(loc, hourly) {
     return w;
   }
 
+  // ── Shooting state ──
+  const shooting =
+    (nowMin >= t.blue_am.start && nowMin <= t.blue_am.end) ||
+    (nowMin >= t.golden_am.start && nowMin <= t.golden_am.end) ||
+    (nowMin >= t.golden_pm.start && nowMin <= t.golden_pm.end) ||
+    (nowMin >= t.blue_pm.start && nowMin <= t.blue_pm.end);
+
   // ── Cloud pill ──
   const nxt = getNextEvent(t, nowMin);
   const cloudTarget = nxt ? nxt.start : null;
@@ -679,7 +691,7 @@ async function createSmallWidget(loc, hourly) {
   cTxt.font = Font.mediumMonospacedSystemFont(8);
   cTxt.textColor = new Color(cl.color);
 
-  if (cloudPct != null) {
+  if (cloudPct !== null) {
     cloudPill.addSpacer(4);
     const cPct = cloudPill.addText(cloudPct + "%");
     cPct.font = Font.lightMonospacedSystemFont(8);
@@ -687,6 +699,22 @@ async function createSmallWidget(loc, hourly) {
   }
 
   cloudRow.addSpacer();
+
+  if (shooting) {
+    w.addSpacer(4);
+    const shootRow = w.addStack();
+    shootRow.layoutHorizontally();
+    shootRow.setPadding(3, 8, 3, 8);
+    shootRow.cornerRadius = 4;
+    shootRow.backgroundColor = new Color("#f0c27f", 0.25);
+    shootRow.borderColor = new Color("#f0c27f", 0.9);
+    shootRow.borderWidth = 2;
+    shootRow.addSpacer();
+    const st = shootRow.addText("* SHOOTING NOW *");
+    st.font = Font.boldMonospacedSystemFont(9);
+    st.textColor = new Color("#fff3d9");
+    shootRow.addSpacer();
+  }
 
   w.addSpacer(6);
 
@@ -747,7 +775,7 @@ function getFullHTML(loc, hourly) {
 
   let cloudHTML = "";
   if (nxt) {
-    const pctStr = cloudPct != null ? cloudPct + "%" : "";
+    const pctStr = cloudPct !== null ? cloudPct + "%" : "";
     cloudHTML =
       '<div class="cloud-badge"><div class="cloud-pill" style="border-color:' +
       cl.color +
@@ -775,8 +803,11 @@ function getFullHTML(loc, hourly) {
 
   let statusHTML = "";
   if (shooting) {
+    const remainTxt = nxt && nxt.remain !== null
+      ? '<div class="sr">' + nxt.remain + ' min remaining</div>'
+      : '';
     statusHTML =
-      '<div class="status shooting"><div class="st">* * *  SHOOTING NOW  * * *</div></div>';
+      '<div class="status shooting"><div class="st">* SHOOTING NOW *</div>' + remainTxt + '</div>';
   } else {
     const events = [
       { min: t.blue_am.start, label: "Morning Blue Hour" },
@@ -871,7 +902,7 @@ function getFullHTML(loc, hourly) {
   function rc(label, s, e, icon, color, active) {
     const dur = e - s;
     const bdr = active
-      ? "border-color:" + color + ";background:" + color + "18"
+      ? "border-color:" + color + "CC;background:" + color + "33"
       : "";
     return (
       '<div class="card" style="' +
@@ -908,7 +939,7 @@ function getFullHTML(loc, hourly) {
     );
   }
 
-  let ch = '<div class="sl2">MORNING</div>';
+  let ch = '<div class="sl2">' + (t.blue_am.start < 720 ? 'MORNING' : 'DAWN') + '</div>';
   ch += rc(
     "Blue Hour",
     t.blue_am.start,
@@ -926,7 +957,7 @@ function getFullHTML(loc, hourly) {
     inGoldenAM,
   );
   ch += pc("Sunrise", t.sunrise, "^", "#e8a87c");
-  ch += '<div class="sl2" style="margin-top:20px">EVENING</div>';
+  ch += '<div class="sl2" style="margin-top:20px">' + (t.golden_pm.start >= 720 ? 'EVENING' : 'DUSK') + '</div>';
   ch += rc(
     "Golden Hour",
     t.golden_pm.start,
@@ -951,18 +982,19 @@ function getFullHTML(loc, hourly) {
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,'SF Mono',monospace;background:linear-gradient(175deg,#1a1218,#2d1b2e 30%,#1e1520);color:#e8d5c4;padding:48px 24px 40px;min-height:100vh}
+body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175deg,#1a1218,#2d1b2e 30%,#1e1520);color:#e8d5c4;padding:48px 24px 40px;min-height:100vh}
 .hd{text-align:center;margin-bottom:40px}
 .co{font-size:10px;letter-spacing:5px;color:#c4784a;text-transform:uppercase;font-weight:300;margin-bottom:8px}
-h1{font-size:26px;font-weight:700;letter-spacing:2px;background:linear-gradient(90deg,#f0c27f,#e8a87c,#d4a054);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+h1{font-size:26px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom:6px}
 .dt{font-size:11px;color:#8a7b72;font-weight:300;letter-spacing:1px}
 .status{text-align:center;margin-bottom:16px;padding:14px 18px;border-radius:8px}
-.shooting{background:rgba(240,194,127,0.12);border:1px solid rgba(240,194,127,0.3)}
+.shooting{background:rgba(240,194,127,0.22);border:1px solid rgba(240,194,127,0.6);animation:pulse-border 2.5s ease-in-out infinite}
 .waiting{background:rgba(138,123,114,0.1);border:1px solid rgba(138,123,114,0.2)}
 .done{background:rgba(138,123,114,0.08);border:1px solid rgba(138,123,114,0.15)}
 .sl{font-size:10px;color:#8a7b72;letter-spacing:2px;margin-bottom:4px}
 .st{font-size:13px;font-weight:500;color:#d4a574;letter-spacing:1px}
-.shooting .st{color:#f0c27f;letter-spacing:3px}
+.shooting .st{color:#f0c27f;letter-spacing:3px;font-size:18px;font-weight:700}
+.sr{font-size:10px;color:#d4a574;letter-spacing:2px;margin-top:5px;font-weight:300}
 .cloud-badge{text-align:center;margin-bottom:32px}
 .cloud-pill{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:1px solid}
 .cloud-icon{font-size:10px;font-weight:300}
@@ -975,7 +1007,7 @@ h1{font-size:26px;font-weight:700;letter-spacing:2px;background:linear-gradient(
 .cards{display:flex;flex-direction:column;gap:12px}
 .card{background:rgba(30,21,32,0.4);border:1px solid rgba(138,123,114,0.12);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
 .cl{display:flex;align-items:center;gap:12px}
-.ci{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+.ci{width:20px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
 .cn{font-size:13px;font-weight:500;letter-spacing:1px}
 .ct{font-size:10px;color:#8a7b72;margin-top:3px;letter-spacing:.5px}
 .cd{font-size:11px;font-weight:500;letter-spacing:1px}
@@ -985,6 +1017,8 @@ h1{font-size:26px;font-weight:700;letter-spacing:2px;background:linear-gradient(
 .li{display:flex;align-items:center;gap:7px;font-size:9px;color:#8a7b72;letter-spacing:1px}
 .ld{width:7px;height:7px;border-radius:2px}
 .ft{text-align:center;margin-top:20px;font-size:9px;color:#5a4b42;letter-spacing:1px;line-height:2}
+@keyframes pulse-border{0%,100%{border-color:rgba(240,194,127,0.6)}50%{border-color:rgba(240,194,127,0.95)}}
+@media(prefers-reduced-motion:reduce){.shooting{animation:none}}
 </style>
 </head><body>
 <div class="hd">
