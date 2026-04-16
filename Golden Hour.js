@@ -526,7 +526,6 @@ async function createWidget(loc, hourly) {
   // ── AM / PM Columns ──
   const body = w.addStack();
   body.layoutHorizontally();
-  body.spacing = 6;
 
   const amCol = body.addStack();
   amCol.layoutVertically();
@@ -554,6 +553,8 @@ async function createWidget(loc, hourly) {
     "#4a6fa5",
     inBlueAM,
   );
+
+  body.addSpacer();
 
   const pmCol = body.addStack();
   pmCol.layoutVertically();
