@@ -463,7 +463,7 @@ async function createWidget(loc, hourly) {
   comboRow.layoutHorizontally();
   comboRow.centerAlignContent();
 
-  if (!shooting) comboRow.addSpacer();
+  comboRow.addSpacer();
 
   const badge = comboRow.addStack();
   badge.cornerRadius = 4;
@@ -514,17 +514,15 @@ async function createWidget(loc, hourly) {
     cPct.textColor = new Color(cl.color, 0.6);
   }
 
-  if (!shooting) comboRow.addSpacer();
+  comboRow.addSpacer();
 
   w.addSpacer(4);
 
   // ── Timeline Bar ──
-  const tlImg = drawTimeline(t, nowMin, 1020, 24);
+  const tlImg = drawTimeline(t, nowMin, 1032, 24);
   const tlRow = w.addStack();
-  tlRow.addSpacer();
   const imgWidget = tlRow.addImage(tlImg);
-  imgWidget.imageSize = new Size(324, 12);
-  tlRow.addSpacer();
+  imgWidget.imageSize = new Size(344, 12);
 
   w.addSpacer(4);
 
@@ -536,6 +534,7 @@ async function createWidget(loc, hourly) {
   const amCol = body.addStack();
   amCol.layoutVertically();
   amCol.spacing = 3;
+  amCol.size = new Size(168, 0);
 
   const amHead = amCol.addText(t.blue_am.start < 720 ? " MORNING" : " DAWN");
   amHead.font = Font.lightMonospacedSystemFont(6);
@@ -560,11 +559,12 @@ async function createWidget(loc, hourly) {
     inGoldenAM,
   );
 
-  body.addSpacer();
+  body.addSpacer(8);
 
   const pmCol = body.addStack();
   pmCol.layoutVertically();
   pmCol.spacing = 3;
+  pmCol.size = new Size(168, 0);
 
   const pmHead = pmCol.addText(t.golden_pm.start >= 720 ? " EVENING" : " DUSK");
   pmHead.font = Font.lightMonospacedSystemFont(6);
