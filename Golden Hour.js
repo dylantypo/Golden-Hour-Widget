@@ -1003,17 +1003,16 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .cloud-pct{font-size:9px;font-weight:300}
 .tb{position:relative;height:30px;background:rgba(30,21,32,0.6);border-radius:6px;overflow:hidden;border:1px solid rgba(138,123,114,0.12)}
 .tl{display:flex;justify-content:space-between;font-size:8px;color:#6a5b52;letter-spacing:1px;margin-top:4px}
-.sl2{font-size:9px;letter-spacing:3px;color:#8a7b72;margin-bottom:6px;white-space:nowrap}
-.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.sp{flex:1}
-.col{display:flex;flex-direction:column;gap:6px}
-.card{background:rgba(30,21,32,0.4);border:1px solid rgba(138,123,114,0.12);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between}
+.sl2{font-size:9px;letter-spacing:3px;color:#8a7b72;margin-bottom:2px;white-space:nowrap;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;gap:14px;min-height:0}
+.col{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0}
+.card{background:rgba(30,21,32,0.4);border:1px solid rgba(138,123,114,0.12);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;flex:1;min-height:0}
 .cl{display:flex;align-items:center;gap:8px;min-width:0}
 .ci{width:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
 .cn{font-size:11px;font-weight:500;letter-spacing:1px;white-space:nowrap}
 .ct{font-size:9px;color:#8a7b72;margin-top:2px;letter-spacing:.5px;white-space:nowrap}
 .cd{font-size:10px;font-weight:500;letter-spacing:1px;flex-shrink:0;white-space:nowrap}
-.cp{background:rgba(30,21,32,0.25);border:1px solid rgba(138,123,114,0.08);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
+.cp{background:rgba(30,21,32,0.25);border:1px solid rgba(138,123,114,0.08);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .bt{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid rgba(138,123,114,0.15);gap:12px}
 .lg{display:flex;align-items:center;gap:14px;flex-shrink:0}
 .li{display:flex;align-items:center;gap:5px;font-size:9px;color:#8a7b72;letter-spacing:1px;white-space:nowrap}
@@ -1033,11 +1032,10 @@ ${statusHTML}
   <div class="tb">${tlHTML}</div>
   <div class="tl"><span>5 AM</span><span>9 AM</span><span>1 PM</span><span>5 PM</span><span>9 PM</span></div>
 </div>
-<div class="cards">
+<div class="main">
   <div class="col">${morningCol}</div>
   <div class="col">${eveningCol}</div>
 </div>
-<div class="sp"></div>
 <div class="bt">
   <div class="lg">
     <div class="li"><div class="ld" style="background:#4a6fa5"></div>Blue</div>
