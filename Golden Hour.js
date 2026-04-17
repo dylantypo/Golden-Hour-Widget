@@ -913,10 +913,10 @@ function getFullHTML(loc, hourly) {
       "</div>";
   } else {
     const events = [
-      { min: t.blue_am.start, label: "Blue AM" },
-      { min: t.golden_am.start, label: "Golden AM" },
-      { min: t.golden_pm.start, label: "Golden PM" },
-      { min: t.blue_pm.start, label: "Blue PM" },
+      { min: t.blue_am.start, label: "AM Blue" },
+      { min: t.golden_am.start, label: "AM Golden" },
+      { min: t.golden_pm.start, label: "PM Golden" },
+      { min: t.blue_pm.start, label: "PM Blue" },
     ];
     let found = false;
     for (const e of events) {
