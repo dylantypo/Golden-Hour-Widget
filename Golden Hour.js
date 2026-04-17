@@ -16,11 +16,34 @@ const CACHE_KEY = "golden_hour_geo_cache";
 const GPS_CACHE_KEY = "golden_hour_gps_cache";
 const GPS_CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
 
+// ── Background gradient (event-driven) ───────────────────
+// Shifts to match the next or active shooting window:
+//   blue hour  → dark steel-blue tint
+//   golden AM  → faint warm amber (pre-dawn)
+//   golden PM  → deeper warm amber (sunset)
+//   no events  → near-flat warm black
+
+function getBgForEvent(nxt) {
+  if (!nxt) return { hex: ["#0c0a08", "#171410", "#0c0a08"], loc: [0, 0.5, 1] };
+  if (nxt.color === "#4a6fa5")
+    return { hex: ["#06080f", "#0e1828", "#06080f"], loc: [0, 0.4, 1] };
+  if (nxt.color === "#f0c27f")
+    return { hex: ["#090705", "#1e1208", "#090705"], loc: [0, 0.4, 1] };
+  if (nxt.color === "#e8a87c")
+    return { hex: ["#0a0704", "#201108", "#0a0704"], loc: [0, 0.4, 1] };
+  return { hex: ["#090705", "#1e1208", "#090705"], loc: [0, 0.4, 1] };
+}
+
+function getBgCSS(nxt) {
+  const g = getBgForEvent(nxt);
+  return `linear-gradient(175deg,${g.hex[0]},${g.hex[1]} ${Math.round(g.loc[1] * 100)}%,${g.hex[2]})`;
+}
+
 // ── Geocode ─────────────────────────────────────────────
 async function geocodeCity(city) {
   const fm = FileManager.iCloud();
   const cacheDir = fm.documentsDirectory();
-  const cacheKey = CACHE_KEY + "_" + city.toLowerCase().replace(/\s+/g, '_');
+  const cacheKey = CACHE_KEY + "_" + city.toLowerCase().replace(/\s+/g, "_");
   const cachePath = fm.joinPath(cacheDir, cacheKey + ".json");
 
   // Try to load cache
@@ -38,25 +61,30 @@ async function geocodeCity(city) {
   }
 
   // Return cache if valid
-  if (cached && 
-      typeof cached.lat === 'number' && 
-      typeof cached.lon === 'number' &&
-      !isNaN(cached.lat) && 
-      !isNaN(cached.lon)) {
+  if (
+    cached &&
+    typeof cached.lat === "number" &&
+    typeof cached.lon === "number" &&
+    !isNaN(cached.lat) &&
+    !isNaN(cached.lon)
+  ) {
     return cached;
   }
 
   // Fetch fresh data
   try {
     const encoded = encodeURIComponent(city);
-    const url = "https://nominatim.openstreetmap.org/search?q=" + encoded + "&format=json&limit=1";
+    const url =
+      "https://nominatim.openstreetmap.org/search?q=" +
+      encoded +
+      "&format=json&limit=1";
     const req = new Request(url);
     req.headers = { "User-Agent": "GoldenHour-Scriptable/1.0 (widget)" };
     req.timeoutInterval = 10;
     const res = await req.loadJSON();
 
     if (!res || res.length === 0) {
-      return (cached && cached.city) ? cached : null;
+      return cached && cached.city ? cached : null;
     }
 
     const result = {
@@ -74,7 +102,7 @@ async function geocodeCity(city) {
 
     return result;
   } catch (e) {
-    return (cached && cached.city) ? cached : null;
+    return cached && cached.city ? cached : null;
   }
 }
 
@@ -82,7 +110,7 @@ async function getGPSLocation() {
   const fm = FileManager.iCloud();
   const cacheDir = fm.documentsDirectory();
   const cachePath = fm.joinPath(cacheDir, GPS_CACHE_KEY + ".json");
-  
+
   // Try to load cached GPS
   let cachedGPS = null;
   try {
@@ -91,12 +119,15 @@ async function getGPSLocation() {
       const raw = fm.readString(cachePath);
       if (raw && raw.length > 0) {
         cachedGPS = JSON.parse(raw);
-        if (cachedGPS.timestamp && (Date.now() - cachedGPS.timestamp) < GPS_CACHE_MAX_AGE) {
+        if (
+          cachedGPS.timestamp &&
+          Date.now() - cachedGPS.timestamp < GPS_CACHE_MAX_AGE
+        ) {
           return {
             city: cachedGPS.city,
             display: cachedGPS.display,
             lat: cachedGPS.lat,
-            lon: cachedGPS.lon
+            lon: cachedGPS.lon,
           };
         }
       }
@@ -110,25 +141,26 @@ async function getGPSLocation() {
     Location.setAccuracyToKilometer();
     const loc = await Location.current();
     const geo = await Location.reverseGeocode(loc.latitude, loc.longitude);
-    const city = (geo && geo[0]) ? (geo[0].city || geo[0].locality || "Here") : "Here";
-    
+    const city =
+      geo && geo[0] ? geo[0].city || geo[0].locality || "Here" : "Here";
+
     const result = {
       city: city,
       display: city,
       lat: loc.latitude,
       lon: loc.longitude,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
-    
+
     try {
       fm.writeString(cachePath, JSON.stringify(result));
     } catch (e) {}
-    
+
     return {
       city: result.city,
       display: result.display,
       lat: result.lat,
-      lon: result.lon
+      lon: result.lon,
     };
   } catch (e) {
     // Try last known location
@@ -136,17 +168,17 @@ async function getGPSLocation() {
       const last = await Location.lastKnown();
       if (last) return last;
     } catch (e2) {}
-    
+
     // Return stale cache if available
     if (cachedGPS && cachedGPS.lat && cachedGPS.lon) {
       return {
         city: cachedGPS.city || "Cached",
         display: cachedGPS.display || "Cached Location",
         lat: cachedGPS.lat,
-        lon: cachedGPS.lon
+        lon: cachedGPS.lon,
       };
     }
-    
+
     throw new Error("Could not determine location");
   }
 }
@@ -179,10 +211,10 @@ async function getLocation() {
         }
       }
     }
-    
+
     const fallback = await geocodeCity(FALLBACK_CITY);
     if (fallback) return fallback;
-    
+
     throw new Error("Location unavailable");
   }
 }
@@ -217,21 +249,21 @@ function getCloudAtMin(hourly, targetMin) {
 }
 
 function cloudLabel(pct) {
-  if (pct === null) return { text: "--", color: "#8a7b72", tier: "unknown" };
-  if (pct <= 20) return { text: "Clear", color: "#7fb87a", tier: "clear" };
+  if (pct === null) return { text: "--", color: "#b5a89e", tier: "unknown" };
+  if (pct <= 20) return { text: "Clear", color: "#9dd499", tier: "clear" };
   if (pct <= 50)
-    return { text: "Partly Cloudy", color: "#d4a574", tier: "partly" };
+    return { text: "Partly Cloudy", color: "#e8be88", tier: "partly" };
   if (pct <= 80)
-    return { text: "Mostly Cloudy", color: "#c4784a", tier: "mostly" };
-  return { text: "Overcast", color: "#8a6060", tier: "overcast" };
+    return { text: "Mostly Cloudy", color: "#d9966a", tier: "mostly" };
+  return { text: "Overcast", color: "#c49090", tier: "overcast" };
 }
 
 function cloudShort(pct) {
-  if (pct === null) return { text: "--", color: "#8a7b72" };
-  if (pct <= 20) return { text: "Clear", color: "#7fb87a" };
-  if (pct <= 50) return { text: "Partial", color: "#d4a574" };
-  if (pct <= 80) return { text: "Cloudy", color: "#c4784a" };
-  return { text: "Overcast", color: "#8a6060" };
+  if (pct === null) return { text: "--", color: "#b5a89e" };
+  if (pct <= 20) return { text: "Clear", color: "#9dd499" };
+  if (pct <= 50) return { text: "Partial", color: "#e8be88" };
+  if (pct <= 80) return { text: "Cloudy", color: "#d9966a" };
+  return { text: "Overcast", color: "#c49090" };
 }
 
 // ── Solar Calc ──────────────────────────────────────────
@@ -511,11 +543,13 @@ async function createWidget(loc, hourly) {
   const t = getTimes(loc.lat, loc.lon);
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nxt = t ? getNextEvent(t, nowMin) : null;
 
   const w = new ListWidget();
   const grad = new LinearGradient();
-  grad.colors = [new Color("#0a0509"), new Color("#3d2145"), new Color("#120910")];
-  grad.locations = [0, 0.3, 1];
+  const _bg = getBgForEvent(nxt);
+  grad.colors = _bg.hex.map((h) => new Color(h));
+  grad.locations = _bg.loc;
   grad.startPoint = new Point(0.456, 0);
   grad.endPoint = new Point(0.544, 1);
   w.backgroundGradient = grad;
@@ -550,7 +584,6 @@ async function createWidget(loc, hourly) {
   const shooting = inBlueAM || inGoldenAM || inGoldenPM || inBluePM;
 
   // ── Status + Cloud (merged row) ──
-  const nxt = getNextEvent(t, nowMin);
   const cloudTarget = nxt ? nxt.start : null;
   const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
   const cl = cloudShort(cloudPct);
@@ -737,11 +770,13 @@ async function createSmallWidget(loc, hourly) {
   const t = getTimes(loc.lat, loc.lon);
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nxt = t ? getNextEvent(t, nowMin) : null;
 
   const w = new ListWidget();
   const grad = new LinearGradient();
-  grad.colors = [new Color("#0a0509"), new Color("#3d2145"), new Color("#120910")];
-  grad.locations = [0, 0.3, 1];
+  const _bg = getBgForEvent(nxt);
+  grad.colors = _bg.hex.map((h) => new Color(h));
+  grad.locations = _bg.loc;
   grad.startPoint = new Point(0.456, 0);
   grad.endPoint = new Point(0.544, 1);
   w.backgroundGradient = grad;
@@ -773,7 +808,6 @@ async function createSmallWidget(loc, hourly) {
     (nowMin >= t.blue_pm.start && nowMin <= t.blue_pm.end);
 
   // ── Cloud pill ──
-  const nxt = getNextEvent(t, nowMin);
   const cloudTarget = nxt ? nxt.start : null;
   const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
   const cl = cloudShort(cloudPct);
@@ -1084,8 +1118,8 @@ function getFullHTML(loc, hourly) {
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html{background:#0a0509}
-body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175deg,#0a0509,#3d2145 30%,#120910);color:#e8d5c4;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));min-height:100%;display:flex;flex-direction:column;gap:10px}
+html{background:${getBgForEvent(nxt).hex[0]}}
+body{font-family:ui-monospace,'SF Mono',monospace;background:${getBgCSS(nxt)};color:#e8d5c4;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));min-height:100%;display:flex;flex-direction:column;gap:10px}
 .hd{text-align:center}
 .co{font-size:9px;letter-spacing:4px;color:#c4784a;text-transform:uppercase;font-weight:300;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom:4px}
