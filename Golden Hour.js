@@ -807,9 +807,9 @@ function getFullHTML(loc, hourly) {
         ? '<div class="sr">' + nxt.remain + " min remaining</div>"
         : "";
     statusHTML =
-      '<div class="status shooting"><div class="st-body"><div class="st">* SHOOTING NOW *</div>' +
+      '<div class="sbar"><div class="status shooting"><div class="st-body"><div class="st">* SHOOTING NOW *</div>' +
       remainTxt +
-      "</div>" +
+      "</div></div>" +
       cloudPillHTML +
       "</div>";
   } else {
@@ -827,11 +827,11 @@ function getFullHTML(loc, hourly) {
         const m = diff % 60;
         const txt = h > 0 ? (m > 0 ? h + "h " + m + "m" : h + "h") : m + "m";
         statusHTML =
-          '<div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st">' +
+          '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st">' +
           e.label +
           "  --  " +
           txt +
-          "</div></div>" +
+          "</div></div></div>" +
           cloudPillHTML +
           "</div>";
         found = true;
@@ -840,7 +840,7 @@ function getFullHTML(loc, hourly) {
     }
     if (!found) {
       statusHTML =
-        '<div class="status done"><div class="st-body"><div class="st" style="color:#8a7b72">Done for today -- see you tomorrow</div></div>' +
+        '<div class="sbar"><div class="status done"><div class="st-body"><div class="st" style="color:#8a7b72">Done for today -- see you tomorrow</div></div></div>' +
         cloudPillHTML +
         "</div>";
     }
@@ -988,13 +988,14 @@ body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175
 .co{font-size:9px;letter-spacing:4px;color:#c4784a;text-transform:uppercase;font-weight:300;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom:4px}
 .dt{font-size:10px;color:#8a7b72;font-weight:300;letter-spacing:1px;white-space:nowrap}
-.status{padding:10px 12px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.st-body{min-width:0;flex:1}
+.sbar{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.status{padding:10px 12px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:1;min-width:0}
+.st-body{min-width:0;flex:1;text-align:center}
 .shooting{background:rgba(240,194,127,0.22);border:1px solid rgba(240,194,127,0.6);animation:pulse-border 2.5s ease-in-out infinite}
 .waiting{background:rgba(138,123,114,0.1);border:1px solid rgba(138,123,114,0.2)}
 .done{background:rgba(138,123,114,0.08);border:1px solid rgba(138,123,114,0.15)}
 .sl{font-size:9px;color:#8a7b72;letter-spacing:2px;margin-bottom:3px}
-.st{font-size:12px;font-weight:500;color:#d4a574;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{font-size:12px;font-weight:500;color:#d4a574;letter-spacing:1px}
 .shooting .st{color:#f0c27f;letter-spacing:3px;font-size:16px;font-weight:700}
 .sr{font-size:9px;color:#d4a574;letter-spacing:2px;margin-top:3px;font-weight:300;white-space:nowrap}
 .cloud-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid;flex-shrink:0;white-space:nowrap}
