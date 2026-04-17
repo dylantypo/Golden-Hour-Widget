@@ -983,7 +983,7 @@ function getFullHTML(loc, hourly) {
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175deg,#1a1218,#2d1b2e 30%,#1e1520);color:#e8d5c4;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));min-height:100vh;display:flex;flex-direction:column;gap:10px}
+body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175deg,#1a1218,#2d1b2e 30%,#1e1520);color:#e8d5c4;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));min-height:100%;display:flex;flex-direction:column;gap:10px}
 .hd{text-align:center}
 .co{font-size:9px;letter-spacing:4px;color:#c4784a;text-transform:uppercase;font-weight:300;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom:4px}
@@ -1004,7 +1004,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .tb{position:relative;height:30px;background:rgba(30,21,32,0.6);border-radius:6px;overflow:hidden;border:1px solid rgba(138,123,114,0.12)}
 .tl{display:flex;justify-content:space-between;font-size:8px;color:#6a5b52;letter-spacing:1px;margin-top:4px}
 .sl2{font-size:9px;letter-spacing:3px;color:#8a7b72;margin-bottom:2px;white-space:nowrap;flex-shrink:0}
-.main{flex:1;display:flex;flex-direction:column;gap:14px;min-height:0;justify-content:space-between}
+.main{flex:1;display:flex;flex-direction:column;gap:14px;min-height:0}
 .col{display:flex;flex-direction:column;gap:6px}
 .card{background:rgba(30,21,32,0.4);border:1px solid rgba(138,123,114,0.12);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
 .cl{display:flex;align-items:center;gap:8px;min-width:0}
@@ -1042,8 +1042,7 @@ ${statusHTML}
     <div class="li"><div class="ld" style="background:#f0c27f"></div>Golden AM</div>
     <div class="li"><div class="ld" style="background:#e8a87c"></div>Golden PM</div>
   </div>
-  <div class="ft">Golden Hour: -4\u00b0 to +6\u00b0</div>
-  <div class="ft">Blue Hour: -6\u00b0 to -4\u00b0</div>
+  <div class="ft">Golden Hour: -4\u00b0 to +6\u00b0 | Blue Hour: -6\u00b0 to -4\u00b0</div>
   <div class="ft">Cloud Data: Open-Meteo</div>
 </div>
 </body></html>`;
