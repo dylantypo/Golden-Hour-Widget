@@ -13,57 +13,142 @@
 
 const FALLBACK_CITY = "Chicago";
 const CACHE_KEY = "golden_hour_geo_cache";
+const GPS_CACHE_KEY = "golden_hour_gps_cache";
+const GPS_CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
 
 // ── Geocode ─────────────────────────────────────────────
 async function geocodeCity(city) {
   const fm = FileManager.iCloud();
   const cacheDir = fm.documentsDirectory();
-  const cachePath = fm.joinPath(cacheDir, CACHE_KEY + ".json");
+  const cacheKey = CACHE_KEY + "_" + city.toLowerCase().replace(/\s+/g, '_');
+  const cachePath = fm.joinPath(cacheDir, cacheKey + ".json");
 
+  // Try to load cache
+  let cached = null;
   if (fm.fileExists(cachePath)) {
-    await fm.downloadFileFromiCloud(cachePath);
     try {
-      const cached = JSON.parse(fm.readString(cachePath));
-      if (cached.city.toLowerCase() === city.toLowerCase()) {
-        return cached;
+      await fm.downloadFileFromiCloud(cachePath);
+      const raw = fm.readString(cachePath);
+      if (raw && raw.length > 0) {
+        cached = JSON.parse(raw);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Cache corrupted - continue without it
+    }
   }
 
-  const encoded = encodeURIComponent(city);
-  const url =
-    "https://nominatim.openstreetmap.org/search?q=" +
-    encoded +
-    "&format=json&limit=1";
-  const req = new Request(url);
-  req.headers = { "User-Agent": "Scriptable-GoldenHour/1.0" };
-  const res = await req.loadJSON();
+  // Return cache if valid
+  if (cached && 
+      typeof cached.lat === 'number' && 
+      typeof cached.lon === 'number' &&
+      !isNaN(cached.lat) && 
+      !isNaN(cached.lon)) {
+    return cached;
+  }
 
-  if (!res || res.length === 0) return null;
+  // Fetch fresh data
+  try {
+    const encoded = encodeURIComponent(city);
+    const url = "https://nominatim.openstreetmap.org/search?q=" + encoded + "&format=json&limit=1";
+    const req = new Request(url);
+    req.headers = { "User-Agent": "GoldenHour-Scriptable/1.0 (widget)" };
+    req.timeoutInterval = 10;
+    const res = await req.loadJSON();
 
-  const result = {
-    city: city,
-    display: res[0].display_name.split(",")[0].trim(),
-    lat: parseFloat(res[0].lat),
-    lon: parseFloat(res[0].lon),
-  };
+    if (!res || res.length === 0) {
+      return (cached && cached.city) ? cached : null;
+    }
 
-  fm.writeString(cachePath, JSON.stringify(result));
-  return result;
+    const result = {
+      city: city,
+      display: res[0].display_name.split(",")[0].trim(),
+      lat: parseFloat(res[0].lat),
+      lon: parseFloat(res[0].lon),
+    };
+
+    if (!isNaN(result.lat) && !isNaN(result.lon)) {
+      try {
+        fm.writeString(cachePath, JSON.stringify(result));
+      } catch (e) {}
+    }
+
+    return result;
+  } catch (e) {
+    return (cached && cached.city) ? cached : null;
+  }
 }
 
 async function getGPSLocation() {
-  Location.setAccuracyToKilometer();
-  const loc = await Location.current();
-  const geo = await Location.reverseGeocode(loc.latitude, loc.longitude);
-  const city =
-    geo && geo[0] ? geo[0].city || geo[0].locality || "Here" : "Here";
-  return {
-    city: city,
-    display: city,
-    lat: loc.latitude,
-    lon: loc.longitude,
-  };
+  const fm = FileManager.iCloud();
+  const cacheDir = fm.documentsDirectory();
+  const cachePath = fm.joinPath(cacheDir, GPS_CACHE_KEY + ".json");
+  
+  // Try to load cached GPS
+  let cachedGPS = null;
+  try {
+    if (fm.fileExists(cachePath)) {
+      await fm.downloadFileFromiCloud(cachePath);
+      const raw = fm.readString(cachePath);
+      if (raw && raw.length > 0) {
+        cachedGPS = JSON.parse(raw);
+        if (cachedGPS.timestamp && (Date.now() - cachedGPS.timestamp) < GPS_CACHE_MAX_AGE) {
+          return {
+            city: cachedGPS.city,
+            display: cachedGPS.display,
+            lat: cachedGPS.lat,
+            lon: cachedGPS.lon
+          };
+        }
+      }
+    }
+  } catch (e) {
+    // Cache read failed - continue
+  }
+
+  // Fetch fresh GPS
+  try {
+    Location.setAccuracyToKilometer();
+    const loc = await Location.current();
+    const geo = await Location.reverseGeocode(loc.latitude, loc.longitude);
+    const city = (geo && geo[0]) ? (geo[0].city || geo[0].locality || "Here") : "Here";
+    
+    const result = {
+      city: city,
+      display: city,
+      lat: loc.latitude,
+      lon: loc.longitude,
+      timestamp: Date.now()
+    };
+    
+    try {
+      fm.writeString(cachePath, JSON.stringify(result));
+    } catch (e) {}
+    
+    return {
+      city: result.city,
+      display: result.display,
+      lat: result.lat,
+      lon: result.lon
+    };
+  } catch (e) {
+    // Try last known location
+    try {
+      const last = await Location.lastKnown();
+      if (last) return last;
+    } catch (e2) {}
+    
+    // Return stale cache if available
+    if (cachedGPS && cachedGPS.lat && cachedGPS.lon) {
+      return {
+        city: cachedGPS.city || "Cached",
+        display: cachedGPS.display || "Cached Location",
+        lat: cachedGPS.lat,
+        lon: cachedGPS.lon
+      };
+    }
+    
+    throw new Error("Could not determine location");
+  }
 }
 
 async function getLocation() {
@@ -74,26 +159,32 @@ async function getLocation() {
     if (result) return result;
   }
 
-  if (!config.runsInWidget) {
-    const alert = new Alert();
-    alert.title = "Golden Hour";
-    alert.message = "Enter a city, or leave blank for GPS";
-    alert.addTextField("City", FALLBACK_CITY);
-    alert.addAction("Go");
-    alert.addCancelAction("Use GPS");
-    const idx = await alert.presentAlert();
+  try {
+    return await getGPSLocation();
+  } catch (gpsError) {
+    if (!config.runsInWidget) {
+      const alert = new Alert();
+      alert.title = "Location Error";
+      alert.message = "Could not get location. Enter a city instead?";
+      alert.addTextField("City", FALLBACK_CITY);
+      alert.addAction("Try City");
+      alert.addCancelAction("Cancel");
+      const idx = await alert.presentAlert();
 
-    if (idx === 0) {
-      const city = alert.textFieldValue(0).trim();
-      if (city.length > 0) {
-        const result = await geocodeCity(city);
-        if (result) return result;
+      if (idx === 0) {
+        const city = alert.textFieldValue(0).trim();
+        if (city.length > 0) {
+          const result = await geocodeCity(city);
+          if (result) return result;
+        }
       }
     }
-    return await getGPSLocation();
+    
+    const fallback = await geocodeCity(FALLBACK_CITY);
+    if (fallback) return fallback;
+    
+    throw new Error("Location unavailable");
   }
-
-  return await getGPSLocation();
 }
 
 // ── Cloud Cover ─────────────────────────────────────────
