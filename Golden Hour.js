@@ -422,7 +422,12 @@ async function createWidget(loc, hourly) {
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
   const w = new ListWidget();
-  w.backgroundColor = new Color("#1a1218");
+  const grad = new LinearGradient();
+  grad.colors = [new Color("#0a0509"), new Color("#3d2145"), new Color("#120910")];
+  grad.locations = [0, 0.3, 1];
+  grad.startPoint = new Point(0.456, 0);
+  grad.endPoint = new Point(0.544, 1);
+  w.backgroundGradient = grad;
   w.setPadding(10, 10, 10, 10);
 
   // ── Header ──
@@ -643,7 +648,12 @@ async function createSmallWidget(loc, hourly) {
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
   const w = new ListWidget();
-  w.backgroundColor = new Color("#1a1218");
+  const grad = new LinearGradient();
+  grad.colors = [new Color("#0a0509"), new Color("#3d2145"), new Color("#120910")];
+  grad.locations = [0, 0.3, 1];
+  grad.startPoint = new Point(0.456, 0);
+  grad.endPoint = new Point(0.544, 1);
+  w.backgroundGradient = grad;
   w.setPadding(12, 10, 12, 10);
 
   // ── City Header ──
@@ -983,7 +993,7 @@ function getFullHTML(loc, hourly) {
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175deg,#1a1218,#2d1b2e 30%,#1e1520);color:#e8d5c4;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));min-height:100%;display:flex;flex-direction:column;gap:10px}
+body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175deg,#0a0509,#3d2145 30%,#120910);color:#e8d5c4;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));min-height:100%;display:flex;flex-direction:column;gap:10px}
 .hd{text-align:center}
 .co{font-size:9px;letter-spacing:4px;color:#c4784a;text-transform:uppercase;font-weight:300;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom:4px}
