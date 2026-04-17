@@ -18,20 +18,23 @@ const GPS_CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
 
 // ── Background gradient (event-driven) ───────────────────
 // Shifts to match the next or active shooting window:
-//   blue hour  → dark steel-blue tint
-//   golden AM  → faint warm amber (pre-dawn)
-//   golden PM  → deeper warm amber (sunset)
-//   no events  → near-flat warm black
+//   AM blue   → deep indigo
+//   PM blue   → ocean blue
+//   AM golden → warm honey amber
+//   PM golden → rich sunset ember
+//   no events → soft warm night
 
 function getBgForEvent(nxt) {
-  if (!nxt) return { hex: ["#0c0a08", "#171410", "#0c0a08"], loc: [0, 0.5, 1] };
+  if (!nxt) return { hex: ["#0c0a09", "#1e1a14", "#0c0a09"], loc: [0, 0.5, 1] };
+  if (nxt.color === "#4a6fa5" && nxt.label === "PM Blue")
+    return { hex: ["#050c12", "#0e2438", "#050c12"], loc: [0, 0.45, 1] };
   if (nxt.color === "#4a6fa5")
-    return { hex: ["#06080f", "#0e1828", "#06080f"], loc: [0, 0.4, 1] };
+    return { hex: ["#07060f", "#161050", "#07060f"], loc: [0, 0.45, 1] };
   if (nxt.color === "#f0c27f")
-    return { hex: ["#090705", "#1e1208", "#090705"], loc: [0, 0.4, 1] };
+    return { hex: ["#110c04", "#301e0c", "#110c04"], loc: [0, 0.45, 1] };
   if (nxt.color === "#e8a87c")
-    return { hex: ["#0a0704", "#201108", "#0a0704"], loc: [0, 0.4, 1] };
-  return { hex: ["#090705", "#1e1208", "#090705"], loc: [0, 0.4, 1] };
+    return { hex: ["#120905", "#341a0a", "#120905"], loc: [0, 0.45, 1] };
+  return { hex: ["#110c04", "#301e0c", "#110c04"], loc: [0, 0.45, 1] };
 }
 
 function getBgCSS(nxt) {
@@ -40,52 +43,46 @@ function getBgCSS(nxt) {
 }
 
 // ── Geocode ─────────────────────────────────────────────
+async function readCache(fm, path) {
+  try {
+    if (!fm.fileExists(path)) return null;
+    await fm.downloadFileFromiCloud(path);
+    const raw = fm.readString(path);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeCache(fm, path, data) {
+  try {
+    fm.writeString(path, JSON.stringify(data));
+  } catch (e) {}
+}
+
+function hasValidCoords(c) {
+  return !!c && Number.isFinite(c.lat) && Number.isFinite(c.lon);
+}
+
 async function geocodeCity(city) {
   const fm = FileManager.iCloud();
-  const cacheDir = fm.documentsDirectory();
   const cacheKey = CACHE_KEY + "_" + city.toLowerCase().replace(/\s+/g, "_");
-  const cachePath = fm.joinPath(cacheDir, cacheKey + ".json");
+  const cachePath = fm.joinPath(fm.documentsDirectory(), cacheKey + ".json");
 
-  // Try to load cache
-  let cached = null;
-  if (fm.fileExists(cachePath)) {
-    try {
-      await fm.downloadFileFromiCloud(cachePath);
-      const raw = fm.readString(cachePath);
-      if (raw && raw.length > 0) {
-        cached = JSON.parse(raw);
-      }
-    } catch (e) {
-      // Cache corrupted - continue without it
-    }
-  }
+  const cached = await readCache(fm, cachePath);
+  if (hasValidCoords(cached)) return cached;
 
-  // Return cache if valid
-  if (
-    cached &&
-    typeof cached.lat === "number" &&
-    typeof cached.lon === "number" &&
-    !isNaN(cached.lat) &&
-    !isNaN(cached.lon)
-  ) {
-    return cached;
-  }
-
-  // Fetch fresh data
   try {
-    const encoded = encodeURIComponent(city);
     const url =
       "https://nominatim.openstreetmap.org/search?q=" +
-      encoded +
+      encodeURIComponent(city) +
       "&format=json&limit=1";
     const req = new Request(url);
     req.headers = { "User-Agent": "GoldenHour-Scriptable/1.0 (widget)" };
     req.timeoutInterval = 10;
     const res = await req.loadJSON();
 
-    if (!res || res.length === 0) {
-      return cached && cached.city ? cached : null;
-    }
+    if (!res || res.length === 0) return null;
 
     const result = {
       city: city,
@@ -93,50 +90,38 @@ async function geocodeCity(city) {
       lat: parseFloat(res[0].lat),
       lon: parseFloat(res[0].lon),
     };
+    if (!hasValidCoords(result)) return null;
 
-    if (!isNaN(result.lat) && !isNaN(result.lon)) {
-      try {
-        fm.writeString(cachePath, JSON.stringify(result));
-      } catch (e) {}
-    }
-
+    writeCache(fm, cachePath, result);
     return result;
   } catch (e) {
-    return cached && cached.city ? cached : null;
+    return null;
   }
 }
 
 async function getGPSLocation() {
   const fm = FileManager.iCloud();
-  const cacheDir = fm.documentsDirectory();
-  const cachePath = fm.joinPath(cacheDir, GPS_CACHE_KEY + ".json");
+  const cachePath = fm.joinPath(
+    fm.documentsDirectory(),
+    GPS_CACHE_KEY + ".json",
+  );
 
-  // Try to load cached GPS
-  let cachedGPS = null;
-  try {
-    if (fm.fileExists(cachePath)) {
-      await fm.downloadFileFromiCloud(cachePath);
-      const raw = fm.readString(cachePath);
-      if (raw && raw.length > 0) {
-        cachedGPS = JSON.parse(raw);
-        if (
-          cachedGPS.timestamp &&
-          Date.now() - cachedGPS.timestamp < GPS_CACHE_MAX_AGE
-        ) {
-          return {
-            city: cachedGPS.city,
-            display: cachedGPS.display,
-            lat: cachedGPS.lat,
-            lon: cachedGPS.lon,
-          };
-        }
-      }
-    }
-  } catch (e) {
-    // Cache read failed - continue
-  }
+  const cached = await readCache(fm, cachePath);
+  const cachedValid = hasValidCoords(cached);
+  const isFresh =
+    cachedValid &&
+    cached.timestamp &&
+    Date.now() - cached.timestamp < GPS_CACHE_MAX_AGE;
 
-  // Fetch fresh GPS
+  const stripTimestamp = (c) => ({
+    city: c.city,
+    display: c.display,
+    lat: c.lat,
+    lon: c.lon,
+  });
+
+  if (isFresh) return stripTimestamp(cached);
+
   try {
     Location.setAccuracyToKilometer();
     const loc = await Location.current();
@@ -151,33 +136,15 @@ async function getGPSLocation() {
       lon: loc.longitude,
       timestamp: Date.now(),
     };
-
-    try {
-      fm.writeString(cachePath, JSON.stringify(result));
-    } catch (e) {}
-
-    return {
-      city: result.city,
-      display: result.display,
-      lat: result.lat,
-      lon: result.lon,
-    };
+    writeCache(fm, cachePath, result);
+    return stripTimestamp(result);
   } catch (e) {
-    // Try last known location
     try {
       const last = await Location.lastKnown();
       if (last) return last;
     } catch (e2) {}
 
-    // Return stale cache if available
-    if (cachedGPS && cachedGPS.lat && cachedGPS.lon) {
-      return {
-        city: cachedGPS.city || "Cached",
-        display: cachedGPS.display || "Cached Location",
-        lat: cachedGPS.lat,
-        lon: cachedGPS.lon,
-      };
-    }
+    if (cachedValid) return stripTimestamp(cached);
 
     throw new Error("Could not determine location");
   }
@@ -321,7 +288,6 @@ function fmtTime(m) {
   return h + ":" + String(mn).padStart(2, "0") + " " + ap;
 }
 
-// Short time format for small widget (no space before AM/PM)
 function fmtShort(m) {
   let h = Math.floor(m / 60);
   const mn = m % 60;
@@ -422,7 +388,6 @@ function getNextEvent(t, nowMin) {
   return null;
 }
 
-// Returns all events not yet finished (active or upcoming)
 function getRemainingEvents(t, nowMin) {
   const allEvents = getAllEvents(t);
   const remaining = [];
@@ -497,7 +462,6 @@ function drawTimeline(t, nowMin, width, height) {
 //  MEDIUM WIDGET  (364 x 170 pt)
 // ─────────────────────────────────────────────────────────
 
-// Compact time row for medium widget
 function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
   const row = stack.addStack();
   row.layoutHorizontally();
