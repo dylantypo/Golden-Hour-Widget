@@ -18,8 +18,8 @@ Built with [Scriptable](https://scriptable.app).
 
 ## Preview
 
-| Widget                              | Full View                     |
-| ----------------------------------- | ----------------------------- |
+| Widget                                                                  | Full View                     |
+| ----------------------------------------------------------------------- | ----------------------------- |
 | ![widget](screenshots/s-widget.png) ![widget](screenshots/m-widget.png) | ![full](screenshots/full.png) |
 
 ---
@@ -52,15 +52,13 @@ Or open Scriptable, tap **+**, and paste the contents of the file.
 
 ## City Configuration
 
-There are three ways to set your location.
+There are two ways to set your location.
 
 **Widget parameter** -- type a city name in the widget's Parameter field:
 
 ```
-Tokyo
+Examples: Chicago; NYC; Tokyo
 ```
-
-**In-app prompt** -- tap the widget or run the script in Scriptable to get a city input dialog.
 
 **GPS fallback** -- leave the parameter blank and it uses your phone's current location.
 
@@ -104,3 +102,5 @@ screenshots/       Widget and full view previews
 Solar calculation based on the NOAA sunrise/sunset algorithm.
 
 Geocoding powered by OpenStreetMap Nominatim.
+
+Cloud cover powered by Open-Meteo
