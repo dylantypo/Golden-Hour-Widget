@@ -814,10 +814,10 @@ function getFullHTML(loc, hourly) {
       "</div>";
   } else {
     const events = [
-      { min: t.blue_am.start, label: "AM Blue Hour" },
-      { min: t.golden_am.start, label: "AM Golden Hour" },
-      { min: t.golden_pm.start, label: "PM Golden Hour" },
-      { min: t.blue_pm.start, label: "PM Blue Hour" },
+      { min: t.blue_am.start, label: "Blue AM" },
+      { min: t.golden_am.start, label: "Golden AM" },
+      { min: t.golden_pm.start, label: "Golden PM" },
+      { min: t.blue_pm.start, label: "Blue PM" },
     ];
     let found = false;
     for (const e of events) {
