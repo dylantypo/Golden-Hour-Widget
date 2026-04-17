@@ -1084,6 +1084,7 @@ function getFullHTML(loc, hourly) {
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+html{background:#0a0509}
 body{font-family:ui-monospace,'SF Mono',monospace;background:linear-gradient(175deg,#0a0509,#3d2145 30%,#120910);color:#e8d5c4;padding:24px 20px calc(16px + env(safe-area-inset-bottom,0px));min-height:100%;display:flex;flex-direction:column;gap:10px}
 .hd{text-align:center}
 .co{font-size:9px;letter-spacing:4px;color:#c4784a;text-transform:uppercase;font-weight:300;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1165,5 +1166,5 @@ if (config.runsInWidget) {
   Script.setWidget(w);
   Script.complete();
 } else {
-  await WebView.loadHTML(getFullHTML(loc, hourly), null, null, true);
+  await WebView.loadHTML(getFullHTML(loc, hourly), null, null, false);
 }
