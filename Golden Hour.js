@@ -1096,7 +1096,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .done{background:rgba(138,123,114,0.08);border:1px solid rgba(138,123,114,0.15)}
 .sl{font-size:9px;color:#8a7b72;letter-spacing:2px;margin-bottom:3px}
 .st{font-size:12px;font-weight:500;color:#d4a574;letter-spacing:1px}
-.shooting .st{color:#f0c27f;letter-spacing:3px;font-size:16px;font-weight:700}
+.shooting .st{color:#f0c27f;letter-spacing:3px;font-size:14px;font-weight:600}
 .sr{font-size:9px;color:#d4a574;letter-spacing:2px;margin-top:3px;font-weight:300;white-space:nowrap}
 .cloud-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid;flex-shrink:0;white-space:nowrap}
 .cloud-icon{font-size:9px;font-weight:300}
