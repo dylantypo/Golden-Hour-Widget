@@ -196,15 +196,20 @@ async function fetchCloudCover(lat, lon) {
       "&longitude=" +
       lon.toFixed(4) +
       "&hourly=cloud_cover" +
+      "&timezone=auto" +
       "&forecast_days=1";
     const req = new Request(url);
     req.timeoutInterval = 5;
     const res = await req.loadJSON();
     if (res && res.hourly && res.hourly.cloud_cover) {
-      return res.hourly;
+      return {
+        hourly: res.hourly,
+        utcOffsetSeconds: res.utc_offset_seconds ?? null,
+        timezoneName: res.timezone ?? null,
+      };
     }
   } catch (e) {}
-  return null;
+  return { hourly: null, utcOffsetSeconds: null, timezoneName: null };
 }
 
 function getCloudAtMin(hourly, targetMin) {
@@ -268,9 +273,11 @@ function calcSunEvent(lat, lon, doy, angleDeg, isRise) {
   return (((T - lngHour) % 24) + 24) % 24;
 }
 
-function utcToLocal(utcH) {
-  const off = new Date().getTimezoneOffset();
-  let local = utcH - off / 60;
+function utcToLocal(utcH, tzOffsetSeconds = null) {
+  const offMinutes = tzOffsetSeconds !== null
+    ? -tzOffsetSeconds / 60
+    : new Date().getTimezoneOffset();
+  let local = utcH - offMinutes / 60;
   if (local < 0) local += 24;
   if (local >= 24) local -= 24;
   return local;
@@ -296,10 +303,24 @@ function fmtShort(m) {
   return h + ":" + String(mn).padStart(2, "0") + ap;
 }
 
-function getTimes(lat, lon) {
+function localNowMin(tzOffsetSeconds = null) {
   const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 0);
-  const doy = Math.floor((now - start) / 86400000);
+  if (tzOffsetSeconds !== null) {
+    return Math.floor(((now.getTime() / 60000) + tzOffsetSeconds / 60 + 1440) % 1440);
+  }
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function getTimes(lat, lon, doyOffset = 0, tzOffsetSeconds = null) {
+  const now = new Date();
+  const localNow = tzOffsetSeconds !== null
+    ? new Date(now.getTime() + tzOffsetSeconds * 1000)
+    : now;
+  const year = tzOffsetSeconds !== null ? localNow.getUTCFullYear() : localNow.getFullYear();
+  const start = tzOffsetSeconds !== null
+    ? new Date(Date.UTC(year, 0, 0))
+    : new Date(year, 0, 0);
+  const doy = Math.floor((localNow - start) / 86400000) + doyOffset;
 
   const angles = [
     { key: "civil", deg: -6.0 },
@@ -313,8 +334,8 @@ function getTimes(lat, lon) {
     const rise = calcSunEvent(lat, lon, doy, a.deg, true);
     const set = calcSunEvent(lat, lon, doy, a.deg, false);
     if (rise === null || set === null) return null;
-    ev[a.key + "_rise"] = hToMin(utcToLocal(rise));
-    ev[a.key + "_set"] = hToMin(utcToLocal(set));
+    ev[a.key + "_rise"] = hToMin(utcToLocal(rise, tzOffsetSeconds));
+    ev[a.key + "_set"] = hToMin(utcToLocal(set, tzOffsetSeconds));
   }
 
   return {
@@ -386,6 +407,19 @@ function getNextEvent(t, nowMin) {
   }
 
   return null;
+}
+
+function getFirstTomorrowEvent(lat, lon, nowMin, tzOffsetSeconds = null) {
+  const tmrw = getTimes(lat, lon, 1, tzOffsetSeconds);
+  if (!tmrw) return null;
+  const events = getAllEvents(tmrw);
+  if (!events.length) return null;
+  const e = events[0];
+  const diff = 1440 - nowMin + e.start;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  const txt = h > 0 ? h + "h " + m + "m" : m + "m";
+  return { ...e, active: false, remain: null, countdown: txt, tomorrow: true };
 }
 
 function getRemainingEvents(t, nowMin) {
@@ -503,10 +537,10 @@ function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
   durText.textColor = new Color(color, 0.7);
 }
 
-async function createWidget(loc, hourly) {
-  const t = getTimes(loc.lat, loc.lon);
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+async function createWidget(loc, hourly, tz = null) {
+  const tzOff = tz?.utcOffsetSeconds ?? null;
+  const t = getTimes(loc.lat, loc.lon, 0, tzOff);
+  const nowMin = localNowMin(tzOff);
   const nxt = t ? getNextEvent(t, nowMin) : null;
 
   const w = new ListWidget();
@@ -580,11 +614,15 @@ async function createWidget(loc, hourly) {
     bt.font = Font.mediumMonospacedSystemFont(8);
     bt.textColor = new Color("#d4a574");
   } else {
+    const tmrwEvt = getFirstTomorrowEvent(loc.lat, loc.lon, nowMin, tzOff);
     badge.setPadding(3, 10, 3, 10);
-    badge.backgroundColor = new Color("#8a7b72", 0.08);
-    const bt = badge.addText("Done for today");
-    bt.font = Font.lightMonospacedSystemFont(8);
-    bt.textColor = new Color("#8a7b72");
+    badge.backgroundColor = new Color("#8a7b72", 0.1);
+    badge.borderColor = new Color("#8a7b72", 0.2);
+    badge.borderWidth = 1;
+    const label = tmrwEvt ? ">> " + tmrwEvt.label + " (tmrw) in " + tmrwEvt.countdown : "No upcoming events";
+    const bt = badge.addText(label);
+    bt.font = Font.mediumMonospacedSystemFont(8);
+    bt.textColor = new Color("#d4a574");
   }
 
   comboRow.addSpacer(6);
@@ -730,10 +768,10 @@ function addCompactRow(stack, ev) {
   durText.textColor = new Color(ev.color, 0.7);
 }
 
-async function createSmallWidget(loc, hourly) {
-  const t = getTimes(loc.lat, loc.lon);
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+async function createSmallWidget(loc, hourly, tz = null) {
+  const tzOff = tz?.utcOffsetSeconds ?? null;
+  const t = getTimes(loc.lat, loc.lon, 0, tzOff);
+  const nowMin = localNowMin(tzOff);
   const nxt = t ? getNextEvent(t, nowMin) : null;
 
   const w = new ListWidget();
@@ -822,13 +860,17 @@ async function createSmallWidget(loc, hourly) {
   const remaining = getRemainingEvents(t, nowMin);
 
   if (remaining.length === 0) {
-    w.addSpacer();
-    const done = w.addText("Done for today");
-    done.font = Font.lightMonospacedSystemFont(10);
-    done.textColor = new Color("#8a7b72");
-    done.centerAlignText();
-    w.addSpacer();
-    return w;
+    const tmrwEvt = getFirstTomorrowEvent(loc.lat, loc.lon, nowMin, tzOff);
+    if (tmrwEvt) remaining.push({ ...tmrwEvt, label: tmrwEvt.label + " tmrw" });
+    if (remaining.length === 0) {
+      w.addSpacer();
+      const done = w.addText("No upcoming events");
+      done.font = Font.lightMonospacedSystemFont(10);
+      done.textColor = new Color("#8a7b72");
+      done.centerAlignText();
+      w.addSpacer();
+      return w;
+    }
   }
 
   const evStack = w.addStack();
@@ -845,16 +887,14 @@ async function createSmallWidget(loc, hourly) {
 }
 
 // ── Full Visual ─────────────────────────────────────────
-function getFullHTML(loc, hourly) {
-  const t = getTimes(loc.lat, loc.lon);
+function getFullHTML(loc, hourly, tz = null) {
+  const tzOff = tz?.utcOffsetSeconds ?? null;
+  const t = getTimes(loc.lat, loc.lon, 0, tzOff);
   const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const dateStr = now.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const nowMin = localNowMin(tzOff);
+  const dateOpts = { weekday: "short", month: "short", day: "numeric", year: "numeric" };
+  if (tz?.timezoneName) dateOpts.timeZone = tz.timezoneName;
+  const dateStr = now.toLocaleDateString("en-US", dateOpts);
 
   const latStr = Math.abs(loc.lat).toFixed(2) + (loc.lat >= 0 ? "N" : "S");
   const lonStr = Math.abs(loc.lon).toFixed(2) + (loc.lon >= 0 ? "E" : "W");
@@ -938,8 +978,11 @@ function getFullHTML(loc, hourly) {
       }
     }
     if (!found) {
+      const tmrwEvt = getFirstTomorrowEvent(loc.lat, loc.lon, nowMin, tzOff);
       statusHTML =
-        '<div class="sbar"><div class="status done"><div class="st-body"><div class="st" style="color:#8a7b72">Done for today -- see you tomorrow</div></div></div>' +
+        '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st">' +
+        (tmrwEvt ? tmrwEvt.label + " (tomorrow)  --  " + tmrwEvt.countdown : "No upcoming events") +
+        "</div></div></div>" +
         cloudPillHTML +
         "</div>";
     }
@@ -1151,18 +1194,19 @@ ${statusHTML}
 
 // ── Run ─────────────────────────────────────────────────
 const loc = await getLocation();
-const hourly = await fetchCloudCover(loc.lat, loc.lon);
+const { hourly, utcOffsetSeconds, timezoneName } = (await fetchCloudCover(loc.lat, loc.lon)) || {};
+const tz = { utcOffsetSeconds: utcOffsetSeconds ?? null, timezoneName: timezoneName ?? null };
 
 if (config.runsInWidget) {
   const family = config.widgetFamily;
   let w;
   if (family === "small") {
-    w = await createSmallWidget(loc, hourly);
+    w = await createSmallWidget(loc, hourly, tz);
   } else {
-    w = await createWidget(loc, hourly);
+    w = await createWidget(loc, hourly, tz);
   }
   Script.setWidget(w);
   Script.complete();
 } else {
-  await WebView.loadHTML(getFullHTML(loc, hourly), null, null, false);
+  await WebView.loadHTML(getFullHTML(loc, hourly, tz), null, null, false);
 }
