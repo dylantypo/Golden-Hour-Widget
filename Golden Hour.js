@@ -536,6 +536,8 @@ function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
     row.borderWidth = 1;
   } else {
     row.backgroundColor = new Color("#1e1520", 0.6);
+    row.borderColor = new Color(color, 0.15);
+    row.borderWidth = 1;
   }
 
   const ico = row.addText(icon);
@@ -546,8 +548,8 @@ function addTimeRowMed(stack, icon, label, startMin, endMin, color, active) {
   const info = row.addStack();
   info.layoutVertically();
 
-  const lbl = info.addText(label);
-  lbl.font = Font.mediumMonospacedSystemFont(9);
+  const lbl = info.addText(label.toUpperCase());
+  lbl.font = Font.boldMonospacedSystemFont(9);
   lbl.textColor = new Color(color);
   lbl.lineLimit = 1;
 
@@ -586,7 +588,7 @@ async function createWidget(loc, hourly, tz = null) {
   title.textColor = new Color("#f0c27f");
   title.centerAlignText();
 
-  const locText = w.addText(loc.display);
+  const locText = w.addText(loc.display.toUpperCase());
   locText.font = Font.lightMonospacedSystemFont(7);
   locText.textColor = new Color("#8a7b72");
   locText.centerAlignText();
@@ -637,7 +639,7 @@ async function createWidget(loc, hourly, tz = null) {
     badge.backgroundColor = new Color("#8a7b72", 0.1);
     badge.borderColor = new Color("#8a7b72", 0.2);
     badge.borderWidth = 1;
-    const bt = badge.addText(">> " + nxt.label + " in " + nxt.countdown);
+    const bt = badge.addText(">> " + nxt.label.toUpperCase() + " in " + nxt.countdown);
     bt.font = Font.mediumMonospacedSystemFont(8);
     bt.textColor = new Color(nxt.color);
   } else {
@@ -647,7 +649,7 @@ async function createWidget(loc, hourly, tz = null) {
     badge.borderColor = new Color("#8a7b72", 0.2);
     badge.borderWidth = 1;
     const label = tmrwEvt
-      ? ">> " + tmrwEvt.label + " in " + tmrwEvt.countdown
+      ? ">> " + tmrwEvt.label.toUpperCase() + " in " + tmrwEvt.countdown
       : "No upcoming events";
     const bt = badge.addText(label);
     bt.font = Font.mediumMonospacedSystemFont(8);
@@ -663,7 +665,7 @@ async function createWidget(loc, hourly, tz = null) {
   cloudPill.borderColor = new Color(cl.color, 0.2);
   cloudPill.borderWidth = 1;
 
-  const cTxt = cloudPill.addText(cl.text);
+  const cTxt = cloudPill.addText(cl.text.toUpperCase());
   cTxt.font = Font.mediumMonospacedSystemFont(7);
   cTxt.textColor = new Color(cl.color);
 
@@ -760,7 +762,7 @@ function addCompactRow(stack, ev) {
   const row = stack.addStack();
   row.layoutHorizontally();
   row.centerAlignContent();
-  row.setPadding(5, 8, 5, 8);
+  row.setPadding(10, 8, 10, 8);
   row.cornerRadius = 6;
 
   if (ev.active) {
@@ -769,18 +771,20 @@ function addCompactRow(stack, ev) {
     row.borderWidth = 1;
   } else {
     row.backgroundColor = new Color("#1e1520", 0.5);
+    row.borderColor = new Color(ev.color, 0.15);
+    row.borderWidth = 1;
   }
 
   const ico = row.addText(ev.icon);
-  ico.font = Font.boldMonospacedSystemFont(10);
+  ico.font = Font.boldMonospacedSystemFont(11);
   ico.textColor = new Color(ev.color);
   row.addSpacer(5);
 
   const info = row.addStack();
   info.layoutVertically();
 
-  const lbl = info.addText(ev.label);
-  lbl.font = Font.mediumMonospacedSystemFont(9);
+  const lbl = info.addText(ev.label.toUpperCase());
+  lbl.font = Font.boldMonospacedSystemFont(9);
   lbl.textColor = new Color(ev.color);
   lbl.lineLimit = 1;
 
@@ -814,7 +818,7 @@ async function createSmallWidget(loc, hourly, tz = null) {
   w.setPadding(12, 10, 12, 10);
 
   // ── City Header ──
-  const locText = w.addText(loc.display);
+  const locText = w.addText(loc.display.toUpperCase());
   locText.font = Font.boldMonospacedSystemFont(12);
   locText.textColor = new Color("#f0c27f");
   locText.centerAlignText();
@@ -854,7 +858,7 @@ async function createSmallWidget(loc, hourly, tz = null) {
   cloudPill.borderColor = new Color(cl.color, 0.2);
   cloudPill.borderWidth = 1;
 
-  const cTxt = cloudPill.addText(cl.text);
+  const cTxt = cloudPill.addText(cl.text.toUpperCase());
   cTxt.font = Font.mediumMonospacedSystemFont(8);
   cTxt.textColor = new Color(cl.color);
 
@@ -904,9 +908,9 @@ async function createSmallWidget(loc, hourly, tz = null) {
 
   const evStack = w.addStack();
   evStack.layoutVertically();
-  evStack.spacing = 4;
+  evStack.spacing = 6;
 
-  for (const ev of remaining) {
+  for (const ev of remaining.slice(0, 2)) {
     addCompactRow(evStack, ev);
   }
 
@@ -961,7 +965,7 @@ function getFullHTML(loc, hourly, tz = null) {
       '<span class="cloud-text" style="color:' +
       cl.color +
       '">' +
-      cl.text +
+      cl.text.toUpperCase() +
       "</span>";
     if (pctStr)
       cloudPillHTML +=
@@ -1003,7 +1007,7 @@ function getFullHTML(loc, hourly, tz = null) {
           '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st" style="color:' +
           e.color +
           '">' +
-          e.label +
+          e.label.toUpperCase() +
           "  --  " +
           txt +
           "</div></div></div>" +
@@ -1021,7 +1025,7 @@ function getFullHTML(loc, hourly, tz = null) {
         tmrwColor +
         '">' +
         (tmrwEvt
-          ? tmrwEvt.label + " --  " + tmrwEvt.countdown
+          ? tmrwEvt.label.toUpperCase() + " --  " + tmrwEvt.countdown
           : "No upcoming events") +
         "</div></div></div>" +
         cloudPillHTML +
@@ -1192,13 +1196,13 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .card{background:rgba(30,21,32,0.4);border:1px solid rgba(138,123,114,0.12);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
 .cl{display:flex;align-items:center;gap:8px;min-width:0}
 .ci{width:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
-.cn{font-size:11px;font-weight:500;letter-spacing:1px;white-space:nowrap}
+.cn{font-size:11px;font-weight:500;letter-spacing:1px;white-space:nowrap;text-transform:uppercase}
 .ct{font-size:9px;color:#8a7b72;margin-top:2px;letter-spacing:.5px;white-space:nowrap}
 .cd{font-size:10px;font-weight:500;letter-spacing:1px;flex-shrink:0;white-space:nowrap}
 .cp{background:rgba(30,21,32,0.25);border:1px solid rgba(138,123,114,0.08);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .bt{display:flex;flex-direction:column;align-items:center;padding-top:10px;border-top:1px solid rgba(138,123,114,0.15);gap:4px}
 .lg{display:flex;align-items:center;gap:14px;flex-shrink:0}
-.li{display:flex;align-items:center;gap:5px;font-size:9px;color:#8a7b72;letter-spacing:1px;white-space:nowrap}
+.li{display:flex;align-items:center;gap:5px;font-size:9px;color:#8a7b72;letter-spacing:1px;white-space:nowrap;text-transform:uppercase}
 .ld{width:6px;height:6px;border-radius:2px;flex-shrink:0}
 .ft{font-size:8px;color:#5a4b42;letter-spacing:1px;white-space:nowrap;text-align:center}
 @keyframes pulse-border{0%,100%{border-color:rgba(240,194,127,0.6)}50%{border-color:rgba(240,194,127,0.95)}}
@@ -1232,6 +1236,7 @@ ${statusHTML}
   </div>
   <div class="ft">Golden Hour: -4\u00b0 to +6\u00b0 | Blue Hour: -6\u00b0 to -4\u00b0</div>
   <div class="ft">Cloud Data: Open-Meteo</div>
+  <div class="ft">Geocoding: OpenStreetMap Nominatim</div>
 </div>
 </body></html>`;
 }
