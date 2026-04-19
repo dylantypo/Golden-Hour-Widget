@@ -274,9 +274,10 @@ function calcSunEvent(lat, lon, doy, angleDeg, isRise) {
 }
 
 function utcToLocal(utcH, tzOffsetSeconds = null) {
-  const offMinutes = tzOffsetSeconds !== null
-    ? -tzOffsetSeconds / 60
-    : new Date().getTimezoneOffset();
+  const offMinutes =
+    tzOffsetSeconds !== null
+      ? -tzOffsetSeconds / 60
+      : new Date().getTimezoneOffset();
   let local = utcH - offMinutes / 60;
   if (local < 0) local += 24;
   if (local >= 24) local -= 24;
@@ -306,20 +307,27 @@ function fmtShort(m) {
 function localNowMin(tzOffsetSeconds = null) {
   const now = new Date();
   if (tzOffsetSeconds !== null) {
-    return Math.floor(((now.getTime() / 60000) + tzOffsetSeconds / 60 + 1440) % 1440);
+    return Math.floor(
+      (now.getTime() / 60000 + tzOffsetSeconds / 60 + 1440) % 1440,
+    );
   }
   return now.getHours() * 60 + now.getMinutes();
 }
 
 function getTimes(lat, lon, doyOffset = 0, tzOffsetSeconds = null) {
   const now = new Date();
-  const localNow = tzOffsetSeconds !== null
-    ? new Date(now.getTime() + tzOffsetSeconds * 1000)
-    : now;
-  const year = tzOffsetSeconds !== null ? localNow.getUTCFullYear() : localNow.getFullYear();
-  const start = tzOffsetSeconds !== null
-    ? new Date(Date.UTC(year, 0, 0))
-    : new Date(year, 0, 0);
+  const localNow =
+    tzOffsetSeconds !== null
+      ? new Date(now.getTime() + tzOffsetSeconds * 1000)
+      : now;
+  const year =
+    tzOffsetSeconds !== null
+      ? localNow.getUTCFullYear()
+      : localNow.getFullYear();
+  const start =
+    tzOffsetSeconds !== null
+      ? new Date(Date.UTC(year, 0, 0))
+      : new Date(year, 0, 0);
   const doy = Math.floor((localNow - start) / 86400000) + doyOffset;
 
   const angles = [
@@ -437,6 +445,27 @@ function getRemainingEvents(t, nowMin) {
   return remaining;
 }
 
+// ── Timeline Window Helpers ─────────────────────────────
+function getTimelineWindow(t, pad) {
+  pad = pad === undefined ? 90 : pad;
+  const DS = Math.max(0, t.blue_am.start - pad);
+  const DE = Math.min(1440, t.blue_pm.end + pad);
+  return { DS, DE, DR: DE - DS };
+}
+
+function getTimelineLabels(DS, DE) {
+  const labels = [];
+  for (let m = 0; m <= 1440; m += 120) {
+    if (m >= DS && m <= DE) {
+      let h = Math.floor(m / 60);
+      const ap = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
+      labels.push({ min: m, label: h + " " + ap });
+    }
+  }
+  return labels;
+}
+
 // ── Draw Timeline Bar ───────────────────────────────────
 function drawTimeline(t, nowMin, width, height) {
   const dc = new DrawContext();
@@ -444,9 +473,7 @@ function drawTimeline(t, nowMin, width, height) {
   dc.opaque = false;
   dc.respectScreenScale = true;
 
-  const DS = 300,
-    DE = 1260,
-    DR = DE - DS;
+  const { DS, DE, DR } = getTimelineWindow(t);
   function x(m) {
     return ((m - DS) / DR) * width;
   }
@@ -619,7 +646,9 @@ async function createWidget(loc, hourly, tz = null) {
     badge.backgroundColor = new Color("#8a7b72", 0.1);
     badge.borderColor = new Color("#8a7b72", 0.2);
     badge.borderWidth = 1;
-    const label = tmrwEvt ? ">> " + tmrwEvt.label + " (tmrw) in " + tmrwEvt.countdown : "No upcoming events";
+    const label = tmrwEvt
+      ? ">> " + tmrwEvt.label + " in " + tmrwEvt.countdown
+      : "No upcoming events";
     const bt = badge.addText(label);
     bt.font = Font.mediumMonospacedSystemFont(8);
     bt.textColor = new Color("#d4a574");
@@ -892,7 +921,12 @@ function getFullHTML(loc, hourly, tz = null) {
   const t = getTimes(loc.lat, loc.lon, 0, tzOff);
   const now = new Date();
   const nowMin = localNowMin(tzOff);
-  const dateOpts = { weekday: "short", month: "short", day: "numeric", year: "numeric" };
+  const dateOpts = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
   if (tz?.timezoneName) dateOpts.timeZone = tz.timezoneName;
   const dateStr = now.toLocaleDateString("en-US", dateOpts);
 
@@ -981,16 +1015,16 @@ function getFullHTML(loc, hourly, tz = null) {
       const tmrwEvt = getFirstTomorrowEvent(loc.lat, loc.lon, nowMin, tzOff);
       statusHTML =
         '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st">' +
-        (tmrwEvt ? tmrwEvt.label + " (tomorrow)  --  " + tmrwEvt.countdown : "No upcoming events") +
+        (tmrwEvt
+          ? tmrwEvt.label + " --  " + tmrwEvt.countdown
+          : "No upcoming events") +
         "</div></div></div>" +
         cloudPillHTML +
         "</div>";
     }
   }
 
-  const DS = 300,
-    DE = 1260,
-    DR = DE - DS;
+  const { DS, DE, DR } = getTimelineWindow(t);
   function pct(m) {
     return ((m - DS) / DR) * 100;
   }
@@ -1146,7 +1180,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .cloud-text{font-size:10px;font-weight:500;letter-spacing:1px}
 .cloud-pct{font-size:9px;font-weight:300}
 .tb{position:relative;height:30px;background:rgba(30,21,32,0.6);border-radius:6px;overflow:hidden;border:1px solid rgba(138,123,114,0.12)}
-.tl{display:flex;justify-content:space-between;font-size:8px;color:#6a5b52;letter-spacing:1px;margin-top:4px}
+.tl{position:relative;height:14px;font-size:8px;color:#6a5b52;letter-spacing:1px;margin-top:4px}
 .sl2{font-size:9px;letter-spacing:3px;color:#8a7b72;margin-bottom:2px;white-space:nowrap;flex-shrink:0}
 .main{flex:1;display:flex;flex-direction:column;gap:14px;min-height:0}
 .col{display:flex;flex-direction:column;gap:6px}
@@ -1174,7 +1208,12 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 ${statusHTML}
 <div>
   <div class="tb">${tlHTML}</div>
-  <div class="tl"><span>5 AM</span><span>9 AM</span><span>1 PM</span><span>5 PM</span><span>9 PM</span></div>
+  <div class="tl">${getTimelineLabels(DS, DE)
+    .map(
+      (l) =>
+        `<span style="position:absolute;left:${pct(l.min).toFixed(2)}%;transform:translateX(-50%)">${l.label}</span>`,
+    )
+    .join("")}</div>
 </div>
 <div class="main">
   <div class="col">${morningCol}</div>
@@ -1194,8 +1233,12 @@ ${statusHTML}
 
 // ── Run ─────────────────────────────────────────────────
 const loc = await getLocation();
-const { hourly, utcOffsetSeconds, timezoneName } = (await fetchCloudCover(loc.lat, loc.lon)) || {};
-const tz = { utcOffsetSeconds: utcOffsetSeconds ?? null, timezoneName: timezoneName ?? null };
+const { hourly, utcOffsetSeconds, timezoneName } =
+  (await fetchCloudCover(loc.lat, loc.lon)) || {};
+const tz = {
+  utcOffsetSeconds: utcOffsetSeconds ?? null,
+  timezoneName: timezoneName ?? null,
+};
 
 if (config.runsInWidget) {
   const family = config.widgetFamily;
