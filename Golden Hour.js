@@ -221,7 +221,7 @@ function getCloudAtMin(hourly, targetMin) {
 }
 
 function cloudLabel(pct) {
-  if (pct === null) return { text: "--", color: "#b5a89e", tier: "unknown" };
+  if (pct === null) return { text: "--", color: "#b8a89c", tier: "unknown" };
   if (pct <= 20) return { text: "Clear", color: "#9dd499", tier: "clear" };
   if (pct <= 50)
     return { text: "Partly Cloudy", color: "#e8be88", tier: "partly" };
@@ -231,7 +231,7 @@ function cloudLabel(pct) {
 }
 
 function cloudShort(pct) {
-  if (pct === null) return { text: "--", color: "#b5a89e" };
+  if (pct === null) return { text: "--", color: "#b8a89c" };
   if (pct <= 20) return { text: "Clear", color: "#9dd499" };
   if (pct <= 50) return { text: "Partial", color: "#e8be88" };
   if (pct <= 80) return { text: "Cloudy", color: "#d9966a" };
@@ -639,7 +639,7 @@ async function createWidget(loc, hourly, tz = null) {
     badge.borderWidth = 1;
     const bt = badge.addText(">> " + nxt.label + " in " + nxt.countdown);
     bt.font = Font.mediumMonospacedSystemFont(8);
-    bt.textColor = new Color("#d4a574");
+    bt.textColor = new Color(nxt.color);
   } else {
     const tmrwEvt = getFirstTomorrowEvent(loc.lat, loc.lon, nowMin, tzOff);
     badge.setPadding(3, 10, 3, 10);
@@ -651,7 +651,7 @@ async function createWidget(loc, hourly, tz = null) {
       : "No upcoming events";
     const bt = badge.addText(label);
     bt.font = Font.mediumMonospacedSystemFont(8);
-    bt.textColor = new Color("#d4a574");
+    bt.textColor = new Color(tmrwEvt ? tmrwEvt.color : "#d4a574");
   }
 
   comboRow.addSpacer(6);
@@ -987,10 +987,10 @@ function getFullHTML(loc, hourly, tz = null) {
       "</div>";
   } else {
     const events = [
-      { min: t.blue_am.start, label: "AM Blue" },
-      { min: t.golden_am.start, label: "AM Golden" },
-      { min: t.golden_pm.start, label: "PM Golden" },
-      { min: t.blue_pm.start, label: "PM Blue" },
+      { min: t.blue_am.start, label: "AM Blue", color: "#4a6fa5" },
+      { min: t.golden_am.start, label: "AM Golden", color: "#f0c27f" },
+      { min: t.golden_pm.start, label: "PM Golden", color: "#e8a87c" },
+      { min: t.blue_pm.start, label: "PM Blue", color: "#4a6fa5" },
     ];
     let found = false;
     for (const e of events) {
@@ -1000,7 +1000,9 @@ function getFullHTML(loc, hourly, tz = null) {
         const m = diff % 60;
         const txt = h > 0 ? (m > 0 ? h + "h " + m + "m" : h + "h") : m + "m";
         statusHTML =
-          '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st">' +
+          '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st" style="color:' +
+          e.color +
+          '">' +
           e.label +
           "  --  " +
           txt +
@@ -1013,8 +1015,11 @@ function getFullHTML(loc, hourly, tz = null) {
     }
     if (!found) {
       const tmrwEvt = getFirstTomorrowEvent(loc.lat, loc.lon, nowMin, tzOff);
+      const tmrwColor = tmrwEvt ? tmrwEvt.color : "#d4a574";
       statusHTML =
-        '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st">' +
+        '<div class="sbar"><div class="status waiting"><div class="st-body"><div class="sl">NEXT UP</div><div class="st" style="color:' +
+        tmrwColor +
+        '">' +
         (tmrwEvt
           ? tmrwEvt.label + " --  " + tmrwEvt.countdown
           : "No upcoming events") +
@@ -1080,7 +1085,7 @@ function getFullHTML(loc, hourly, tz = null) {
     tlHTML +=
       '<div style="position:absolute;left:' +
       np +
-      '%;top:0;height:100%;width:2px;background:#f0f0f0;box-shadow:0 0 8px rgba(240,240,240,0.5);z-index:10"><div style="position:absolute;top:-14px;left:-10px;font-size:8px;color:#f0f0f0;letter-spacing:1px;font-weight:500">NOW</div></div>';
+      '%;top:0;height:100%;width:2px;background:#ffffff;box-shadow:0 0 8px rgba(255,255,255,0.5);z-index:10"><div style="position:absolute;top:-14px;left:-10px;font-size:8px;color:#ffffff;letter-spacing:1px;font-weight:500">NOW</div></div>';
   }
 
   function rc(label, s, e, icon, color, active) {
@@ -1136,7 +1141,7 @@ function getFullHTML(loc, hourly, tz = null) {
       "#f0c27f",
       inGoldenAM,
     ) +
-    pc("Sunrise", t.sunrise, "^", "#e8a87c");
+    pc("Sunrise", t.sunrise, "^", "#c4784a");
 
   const eveningCol =
     '<div class="sl2">' +
