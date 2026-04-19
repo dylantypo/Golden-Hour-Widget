@@ -1235,8 +1235,8 @@ ${statusHTML}
     <div class="li"><div class="ld" style="background:#e8a87c"></div>Golden PM</div>
   </div>
   <div class="ft">Golden Hour: -4\u00b0 to +6\u00b0 | Blue Hour: -6\u00b0 to -4\u00b0</div>
-  <div class="ft">Cloud Data: Open-Meteo</div>
   <div class="ft">Geocoding: OpenStreetMap Nominatim</div>
+  <div class="ft">Cloud Data: Open-Meteo</div>
 </div>
 </body></html>`;
 }
