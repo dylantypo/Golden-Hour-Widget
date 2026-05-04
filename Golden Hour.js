@@ -1093,7 +1093,7 @@ function getFullHTML(loc, hourly, tz = null) {
       np.toFixed(2) +
       '%;top:0;height:100%;width:2px;background:#ffffff;box-shadow:0 0 8px rgba(255,255,255,0.5);z-index:10"></div>';
     nowLabel =
-      '<span style="position:absolute;left:' +
+      '<span style="position:absolute;bottom:1px;left:' +
       np.toFixed(2) +
       '%;transform:translateX(-50%);color:#ffffff;font-weight:600;font-size:8px;letter-spacing:1px">NOW</span>';
   }
@@ -1193,6 +1193,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .cloud-icon{font-size:9px;font-weight:300}
 .cloud-text{font-size:10px;font-weight:500;letter-spacing:1px}
 .cloud-pct{font-size:9px;font-weight:300}
+.tn{position:relative;height:14px;margin-bottom:2px}
 .tb{position:relative;height:30px;background:rgba(30,21,32,0.6);border-radius:6px;overflow:hidden;border:1px solid rgba(138,123,114,0.12)}
 .tl{position:relative;height:14px;font-size:8px;color:#6a5b52;letter-spacing:1px;margin-top:4px}
 .sl2{font-size:9px;letter-spacing:3px;color:#8a7b72;margin-bottom:6px;white-space:nowrap;flex-shrink:0}
@@ -1221,13 +1222,14 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 </div>
 ${statusHTML}
 <div>
+  <div class="tn">${nowLabel}</div>
   <div class="tb">${tlHTML + nowMarker}</div>
   <div class="tl">${getTimelineLabels(DS, DE)
     .map(
       (l) =>
         `<span style="position:absolute;left:${pct(l.min).toFixed(2)}%;transform:translateX(-50%)">${l.label}</span>`,
     )
-    .join("") + nowLabel}</div>
+    .join("")}</div>
 </div>
 <div class="main">
   <div class="col">${morningCol}</div>
