@@ -1008,7 +1008,7 @@ function getFullHTML(loc, hourly, tz = null) {
           e.color +
           '">' +
           e.label.toUpperCase() +
-          "  --  " +
+          " -- " +
           txt +
           "</div></div></div>" +
           cloudPillHTML +
@@ -1025,7 +1025,7 @@ function getFullHTML(loc, hourly, tz = null) {
         tmrwColor +
         '">' +
         (tmrwEvt
-          ? tmrwEvt.label.toUpperCase() + " --  " + tmrwEvt.countdown
+          ? tmrwEvt.label.toUpperCase() + " -- " + tmrwEvt.countdown
           : "No upcoming events") +
         "</div></div></div>" +
         cloudPillHTML +
@@ -1085,11 +1085,17 @@ function getFullHTML(loc, hourly, tz = null) {
       '"></div>';
   }
   const np = pct(nowMin);
+  let nowMarker = "";
+  let nowLabel = "";
   if (np >= 0 && np <= 100) {
-    tlHTML +=
+    nowMarker =
       '<div style="position:absolute;left:' +
-      np +
-      '%;top:0;height:100%;width:2px;background:#ffffff;box-shadow:0 0 8px rgba(255,255,255,0.5);z-index:10"><div style="position:absolute;top:-14px;left:-10px;font-size:8px;color:#ffffff;letter-spacing:1px;font-weight:500">NOW</div></div>';
+      np.toFixed(2) +
+      '%;top:0;height:100%;width:2px;background:#ffffff;box-shadow:0 0 8px rgba(255,255,255,0.5);z-index:10"></div>';
+    nowLabel =
+      '<span style="position:absolute;left:' +
+      np.toFixed(2) +
+      '%;transform:translateX(-50%);color:#ffffff;font-weight:600;font-size:8px;letter-spacing:1px">NOW</span>';
   }
 
   function rc(label, s, e, icon, color, active) {
@@ -1179,10 +1185,9 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .st-body{min-width:0;flex:1;text-align:center}
 .shooting{background:rgba(240,194,127,0.22);border:1px solid rgba(240,194,127,0.6);animation:pulse-border 2.5s ease-in-out infinite}
 .waiting{background:rgba(138,123,114,0.1);border:1px solid rgba(138,123,114,0.2)}
-.done{background:rgba(138,123,114,0.08);border:1px solid rgba(138,123,114,0.15)}
 .sl{font-size:9px;color:#8a7b72;letter-spacing:2px;margin-bottom:3px}
 .st{font-size:12px;font-weight:500;color:#d4a574;letter-spacing:1px}
-.shooting .st{color:#f0c27f;letter-spacing:3px;font-size:14px;font-weight:600}
+.shooting .st{color:#f0c27f;letter-spacing:2px;font-size:12px;font-weight:600}
 .sr{font-size:9px;color:#d4a574;letter-spacing:2px;margin-top:3px;font-weight:300;white-space:nowrap}
 .cloud-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid;flex-shrink:0;white-space:nowrap}
 .cloud-icon{font-size:9px;font-weight:300}
@@ -1190,7 +1195,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .cloud-pct{font-size:9px;font-weight:300}
 .tb{position:relative;height:30px;background:rgba(30,21,32,0.6);border-radius:6px;overflow:hidden;border:1px solid rgba(138,123,114,0.12)}
 .tl{position:relative;height:14px;font-size:8px;color:#6a5b52;letter-spacing:1px;margin-top:4px}
-.sl2{font-size:9px;letter-spacing:3px;color:#8a7b72;margin-bottom:2px;white-space:nowrap;flex-shrink:0}
+.sl2{font-size:9px;letter-spacing:3px;color:#8a7b72;margin-bottom:6px;white-space:nowrap;flex-shrink:0}
 .main{flex:1;display:flex;flex-direction:column;gap:14px;min-height:0}
 .col{display:flex;flex-direction:column;gap:6px}
 .card{background:rgba(30,21,32,0.4);border:1px solid rgba(138,123,114,0.12);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
@@ -1216,13 +1221,13 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 </div>
 ${statusHTML}
 <div>
-  <div class="tb">${tlHTML}</div>
+  <div class="tb">${tlHTML + nowMarker}</div>
   <div class="tl">${getTimelineLabels(DS, DE)
     .map(
       (l) =>
         `<span style="position:absolute;left:${pct(l.min).toFixed(2)}%;transform:translateX(-50%)">${l.label}</span>`,
     )
-    .join("")}</div>
+    .join("") + nowLabel}</div>
 </div>
 <div class="main">
   <div class="col">${morningCol}</div>
