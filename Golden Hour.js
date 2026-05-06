@@ -221,13 +221,13 @@ function getCloudAtMin(hourly, targetMin) {
 }
 
 function cloudLabel(pct) {
-  if (pct === null) return { text: "--", color: "#b8a89c", tier: "unknown" };
-  if (pct <= 20) return { text: "Clear", color: "#9dd499", tier: "clear" };
+  if (pct === null) return { text: null, color: "#b8a89c", tier: "unknown", borderStyle: "solid" };
+  if (pct <= 20) return { text: "Clear", color: "#9dd499", tier: "clear", borderStyle: "solid" };
   if (pct <= 50)
-    return { text: "Partly Cloudy", color: "#e8be88", tier: "partly" };
+    return { text: "Partly Cloudy", color: "#e8be88", tier: "partly", borderStyle: "dashed" };
   if (pct <= 80)
-    return { text: "Mostly Cloudy", color: "#d9966a", tier: "mostly" };
-  return { text: "Overcast", color: "#c49090", tier: "overcast" };
+    return { text: "Mostly Cloudy", color: "#d9966a", tier: "mostly", borderStyle: "dotted" };
+  return { text: "Overcast", color: "#c49090", tier: "overcast", borderStyle: "dotted" };
 }
 
 function cloudShort(pct) {
@@ -656,20 +656,20 @@ async function createWidget(loc, hourly, tz = null) {
     bt.textColor = new Color(tmrwEvt ? tmrwEvt.color : "#d4a574");
   }
 
-  comboRow.addSpacer(6);
-
-  const cloudPill = comboRow.addStack();
-  cloudPill.setPadding(3, 8, 3, 8);
-  cloudPill.cornerRadius = 4;
-  cloudPill.backgroundColor = new Color(cl.color, 0.1);
-  cloudPill.borderColor = new Color(cl.color, 0.2);
-  cloudPill.borderWidth = 1;
-
-  const cTxt = cloudPill.addText(cl.text.toUpperCase());
-  cTxt.font = Font.mediumMonospacedSystemFont(7);
-  cTxt.textColor = new Color(cl.color);
-
   if (cloudPct !== null) {
+    comboRow.addSpacer(6);
+
+    const cloudPill = comboRow.addStack();
+    cloudPill.setPadding(3, 8, 3, 8);
+    cloudPill.cornerRadius = 4;
+    cloudPill.backgroundColor = new Color(cl.color, 0.1);
+    cloudPill.borderColor = new Color(cl.color, 0.2);
+    cloudPill.borderWidth = 1;
+
+    const cTxt = cloudPill.addText(cl.text.toUpperCase());
+    cTxt.font = Font.mediumMonospacedSystemFont(7);
+    cTxt.textColor = new Color(cl.color);
+
     cloudPill.addSpacer(3);
     const cPct = cloudPill.addText(cloudPct + "%");
     cPct.font = Font.lightMonospacedSystemFont(7);
@@ -847,29 +847,29 @@ async function createSmallWidget(loc, hourly, tz = null) {
   const cloudPct = cloudTarget ? getCloudAtMin(hourly, cloudTarget) : null;
   const cl = cloudShort(cloudPct);
 
-  const cloudRow = w.addStack();
-  cloudRow.layoutHorizontally();
-  cloudRow.addSpacer();
-
-  const cloudPill = cloudRow.addStack();
-  cloudPill.setPadding(3, 8, 3, 8);
-  cloudPill.cornerRadius = 4;
-  cloudPill.backgroundColor = new Color(cl.color, 0.1);
-  cloudPill.borderColor = new Color(cl.color, 0.2);
-  cloudPill.borderWidth = 1;
-
-  const cTxt = cloudPill.addText(cl.text.toUpperCase());
-  cTxt.font = Font.mediumMonospacedSystemFont(8);
-  cTxt.textColor = new Color(cl.color);
-
   if (cloudPct !== null) {
+    const cloudRow = w.addStack();
+    cloudRow.layoutHorizontally();
+    cloudRow.addSpacer();
+
+    const cloudPill = cloudRow.addStack();
+    cloudPill.setPadding(3, 8, 3, 8);
+    cloudPill.cornerRadius = 4;
+    cloudPill.backgroundColor = new Color(cl.color, 0.1);
+    cloudPill.borderColor = new Color(cl.color, 0.2);
+    cloudPill.borderWidth = 1;
+
+    const cTxt = cloudPill.addText(cl.text.toUpperCase());
+    cTxt.font = Font.mediumMonospacedSystemFont(8);
+    cTxt.textColor = new Color(cl.color);
+
     cloudPill.addSpacer(4);
     const cPct = cloudPill.addText(cloudPct + "%");
     cPct.font = Font.lightMonospacedSystemFont(8);
     cPct.textColor = new Color(cl.color, 0.6);
-  }
 
-  cloudRow.addSpacer();
+    cloudRow.addSpacer();
+  }
 
   if (shooting) {
     w.addSpacer(4);
@@ -952,29 +952,23 @@ function getFullHTML(loc, hourly, tz = null) {
   const cl = cloudLabel(cloudPct);
 
   let cloudPillHTML = "";
-  if (nxt) {
-    const pctStr = cloudPct !== null ? cloudPct + "%" : "";
+  if (nxt && cloudPct !== null) {
     cloudPillHTML =
       '<div class="cloud-pill" style="border-color:' +
       cl.color +
       "40;background:" +
       cl.color +
-      '18"><span class="cloud-icon" style="color:' +
-      cl.color +
-      '99">//</span>' +
-      '<span class="cloud-text" style="color:' +
+      "18;border-style:" +
+      cl.borderStyle +
+      '"><span class="cloud-text" style="color:' +
       cl.color +
       '">' +
       cl.text.toUpperCase() +
-      "</span>";
-    if (pctStr)
-      cloudPillHTML +=
-        '<span class="cloud-pct" style="color:' +
-        cl.color +
-        '99">' +
-        pctStr +
-        "</span>";
-    cloudPillHTML += "</div>";
+      '</span><span class="cloud-pct" style="color:' +
+      cl.color +
+      '99">' +
+      cloudPct +
+      "%</span></div>";
   }
 
   let statusHTML = "";
@@ -1008,7 +1002,7 @@ function getFullHTML(loc, hourly, tz = null) {
           e.color +
           '">' +
           e.label.toUpperCase() +
-          " -- " +
+          " · " +
           txt +
           "</div></div></div>" +
           cloudPillHTML +
@@ -1025,7 +1019,7 @@ function getFullHTML(loc, hourly, tz = null) {
         tmrwColor +
         '">' +
         (tmrwEvt
-          ? tmrwEvt.label.toUpperCase() + " -- " + tmrwEvt.countdown
+          ? tmrwEvt.label.toUpperCase() + " · " + tmrwEvt.countdown
           : "No upcoming events") +
         "</div></div></div>" +
         cloudPillHTML +
@@ -1189,8 +1183,7 @@ h1{font-size:22px;font-weight:700;letter-spacing:2px;color:#f0c27f;margin-bottom
 .st{font-size:12px;font-weight:500;color:#d4a574;letter-spacing:1px}
 .shooting .st{color:#f0c27f;letter-spacing:2px;font-size:12px;font-weight:600}
 .sr{font-size:9px;color:#d4a574;letter-spacing:2px;margin-top:3px;font-weight:300;white-space:nowrap}
-.cloud-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid;flex-shrink:0;white-space:nowrap}
-.cloud-icon{font-size:9px;font-weight:300}
+.cloud-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border-width:1px;flex-shrink:0;white-space:nowrap}
 .cloud-text{font-size:10px;font-weight:500;letter-spacing:1px}
 .cloud-pct{font-size:9px;font-weight:300}
 .tn{position:relative;height:14px;margin-bottom:2px}
