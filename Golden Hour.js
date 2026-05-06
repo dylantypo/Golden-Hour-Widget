@@ -221,13 +221,40 @@ function getCloudAtMin(hourly, targetMin) {
 }
 
 function cloudLabel(pct) {
-  if (pct === null) return { text: null, color: "#b8a89c", tier: "unknown", borderStyle: "solid" };
-  if (pct <= 20) return { text: "Clear", color: "#9dd499", tier: "clear", borderStyle: "solid" };
+  if (pct === null)
+    return {
+      text: null,
+      color: "#b8a89c",
+      tier: "unknown",
+      borderStyle: "solid",
+    };
+  if (pct <= 20)
+    return {
+      text: "Clear",
+      color: "#9dd499",
+      tier: "clear",
+      borderStyle: "solid",
+    };
   if (pct <= 50)
-    return { text: "Partly Cloudy", color: "#e8be88", tier: "partly", borderStyle: "dashed" };
+    return {
+      text: "Partly Cloudy",
+      color: "#e8be88",
+      tier: "partly",
+      borderStyle: "dashed",
+    };
   if (pct <= 80)
-    return { text: "Mostly Cloudy", color: "#d9966a", tier: "mostly", borderStyle: "dotted" };
-  return { text: "Overcast", color: "#c49090", tier: "overcast", borderStyle: "dotted" };
+    return {
+      text: "Mostly Cloudy",
+      color: "#d9966a",
+      tier: "mostly",
+      borderStyle: "dotted",
+    };
+  return {
+    text: "Overcast",
+    color: "#c49090",
+    tier: "overcast",
+    borderStyle: "dotted",
+  };
 }
 
 function cloudShort(pct) {
@@ -639,7 +666,9 @@ async function createWidget(loc, hourly, tz = null) {
     badge.backgroundColor = new Color("#8a7b72", 0.1);
     badge.borderColor = new Color("#8a7b72", 0.2);
     badge.borderWidth = 1;
-    const bt = badge.addText(">> " + nxt.label.toUpperCase() + " in " + nxt.countdown);
+    const bt = badge.addText(
+      ">> " + nxt.label.toUpperCase() + " in " + nxt.countdown,
+    );
     bt.font = Font.mediumMonospacedSystemFont(8);
     bt.textColor = new Color(nxt.color);
   } else {
@@ -1002,7 +1031,7 @@ function getFullHTML(loc, hourly, tz = null) {
           e.color +
           '">' +
           e.label.toUpperCase() +
-          " · " +
+          " in " +
           txt +
           "</div></div></div>" +
           cloudPillHTML +
@@ -1019,7 +1048,7 @@ function getFullHTML(loc, hourly, tz = null) {
         tmrwColor +
         '">' +
         (tmrwEvt
-          ? tmrwEvt.label.toUpperCase() + " · " + tmrwEvt.countdown
+          ? tmrwEvt.label.toUpperCase() + " in " + tmrwEvt.countdown
           : "No upcoming events") +
         "</div></div></div>" +
         cloudPillHTML +
